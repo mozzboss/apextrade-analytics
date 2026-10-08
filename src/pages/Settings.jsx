@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Check, Loader2, Plug, CheckCircle2 } from 'lucide-react';
 import { SettingsService } from '@/services/storage';
+import { OandaService } from '@/services/oandaService';
 import { DEFAULTS } from '@/services/riskEngine';
 import SectionCard from '@/components/SectionCard';
+import { cn } from '@/lib/utils';
 
 export default function Settings() {
   const [form, setForm] = useState({
     account_balance: 10000, risk_per_trade: DEFAULTS.riskPerTrade, max_risk: DEFAULTS.maxRisk,
     min_risk_reward: DEFAULTS.minRiskReward, news_blackout_minutes: DEFAULTS.newsBlackoutMinutes, paper_mode: true,
     auto_mode: false, max_trades_per_day: 5, daily_loss_limit: 3, kill_switch: false,
+    oanda_environment: 'practice', oanda_api_token: '', oanda_account_id: '', oanda_connected: false,
   });
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [oandaStatus, setOandaStatus] = useState(null);
 
   useEffect(() => {
     SettingsService.get().then(s => { if (s) setForm(s); }).catch(() => {}).finally(() => setLoading(false));
@@ -24,6 +29,23 @@ export default function Settings() {
   }
 
   function set(k, v) { setForm({ ...form, [k]: v }); }
+
+  async function testOanda() {
+    setTesting(true);
+    setOandaStatus(null);
+    try {
+      // persist first so oandaService reads the entered token/env
+      await SettingsService.save({ ...form, oanda_connected: false });
+      const accounts = await OandaService.testConnection();
+      const matched = accounts.some((a) => a.id === form.oanda_account_id);
+      setOandaStatus({ ok: true, count: accounts.length, matched });
+      set('oanda_connected', true);
+    } catch (e) {
+      setOandaStatus({ ok: false, error: e.message });
+      set('oanda_connected', false);
+    }
+    setTesting(false);
+  }
 
   return (
     <div className="space-y-5">
@@ -43,7 +65,7 @@ export default function Settings() {
             <Field label="Trading Mode">
               <div className="flex items-center gap-3 mt-1">
                 <label className="flex items-center gap-2 text-sm"><input type="radio" checked={form.paper_mode} onChange={() => set('paper_mode', true)} /> Paper Trading</label>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="radio" checked={!form.paper_mode} onChange={() => set('paper_mode', false)} disabled /> Live (locked)</label>
+                <label className={cn('flex items-center gap-2 text-sm', form.oanda_connected ? 'text-bearish' : 'text-muted-foreground')}><input type="radio" checked={!form.paper_mode} onChange={() => set('paper_mode', false)} disabled={!form.oanda_connected} /> Live {form.oanda_connected ? '(OANDA)' : '(connect OANDA)'}</label>
               </div>
             </Field>
           </div>
@@ -82,11 +104,55 @@ export default function Settings() {
         )}
       </SectionCard>
 
+      <SectionCard title="OANDA Broker Connection" icon={Plug}>
+        {loading ? <div className="h-40 rounded-xl bg-muted/40 animate-pulse" /> : (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Connect your OANDA account to route auto-trade executions live. Use <span className="text-foreground font-medium">Practice</span> first to verify, then switch to Live.
+              Your API token is stored in your app settings (owner-only access).
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Environment">
+                <div className="flex items-center gap-3 mt-1">
+                  <label className="flex items-center gap-2 text-sm"><input type="radio" checked={form.oanda_environment !== 'live'} onChange={() => set('oanda_environment', 'practice')} /> Practice</label>
+                  <label className="flex items-center gap-2 text-sm text-bearish"><input type="radio" checked={form.oanda_environment === 'live'} onChange={() => set('oanda_environment', 'live')} /> Live</label>
+                </div>
+              </Field>
+              <Field label="Account ID" hint="OANDA v20 account id (e.g. 101-001-...)">
+                <input value={form.oanda_account_id} onChange={(e) => set('oanda_account_id', e.target.value)} className="input-field" />
+              </Field>
+              <Field label="API Token" hint="OANDA → My Services → API Token">
+                <input type="password" value={form.oanda_api_token} onChange={(e) => set('oanda_api_token', e.target.value)} className="input-field" autoComplete="off" />
+              </Field>
+              <Field label="Connection">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <button onClick={testOanda} disabled={testing || !form.oanda_api_token}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50">
+                    {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plug className="w-3.5 h-3.5" />}
+                    {testing ? 'Testing…' : 'Test & Connect'}
+                  </button>
+                  {form.oanda_connected && <span className="text-xs text-bullish flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Connected</span>}
+                </div>
+              </Field>
+            </div>
+            {oandaStatus && (
+              <div className={cn('text-xs rounded-lg px-3 py-2 border', oandaStatus.ok ? 'text-bullish border-bullish/30 bg-bullish/5' : 'text-bearish border-bearish/30 bg-bearish/5')}>
+                {oandaStatus.ok
+                  ? <>Connected — {oandaStatus.count} account(s) found{form.oanda_account_id && (oandaStatus.matched ? ' · account ID matched ✓' : ' · account ID not in list — check it')}. Save settings to keep it.</>
+                  : <>Connection failed — {oandaStatus.error}</>}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Note: OANDA must allow browser access (CORS) for your account. If the test fails with a network/CORS error, a server-side proxy (Builder+ backend function) is required to keep the token off the client.
+            </p>
+          </div>
+        )}
+      </SectionCard>
+
       <SectionCard title="Live Execution Safety">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Live broker integration is a future phase. When added, the system will <span className="text-foreground font-medium">never</span> execute a live trade without explicit user confirmation.
-          Before any order, it will display market, direction, entry, position size, stop loss, take profit, maximum dollar risk, and risk %, and require a manual CONFIRM TRADE action.
-          Paper trading is the default and no live-money trading is connected.
+          When OANDA is connected and Paper Trading is off, the auto-trade engine routes qualifying orders to OANDA as live market orders with stop-loss and take-profit attached.
+          All pre-trade guards still apply. Paper trading remains the default — never trade live until you have verified behavior on the practice environment.
         </p>
       </SectionCard>
     </div>

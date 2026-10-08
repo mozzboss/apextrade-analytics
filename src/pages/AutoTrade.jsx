@@ -68,6 +68,20 @@ export default function AutoTrade() {
         </div>
       </div>
 
+      {/* Broker connection */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground uppercase tracking-wider">Broker:</span>
+        {settings?.oanda_connected ? (
+          <span className="flex items-center gap-1.5 text-bullish">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            OANDA {settings.oanda_environment === 'live' ? 'Live' : 'Practice'}
+            {settings.paper_mode ? ' (paper mode)' : ' · live execution'}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Paper — connect OANDA in Settings to go live</span>
+        )}
+      </div>
+
       {/* Safety rails summary */}
       <SectionCard title="Active Safety Rails" icon={ShieldAlert}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">

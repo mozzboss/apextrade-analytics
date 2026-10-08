@@ -1,10 +1,11 @@
-import { TradingJournalService } from '@/services/storage';
+import { TradingJournalService, SettingsService } from '@/services/storage';
+import { OandaService } from './oandaService';
 
 // ---------------------------------------------------------------------------
 // BrokerService — adapter seam for order execution.
-// Default provider is "paper" (records to the journal). A live broker (OANDA)
-// provider plugs in via setBrokerProvider once a Builder+ backend function
-// exists to call the broker API server-side with a stored API-key secret.
+// Default provider is "paper" (records to the journal). When OANDA is
+// connected and paper mode is off, orders route to OANDA as live market orders
+// (and are also logged to the journal for tracking).
 // ---------------------------------------------------------------------------
 
 const paperProvider = {
@@ -34,12 +35,53 @@ const paperProvider = {
   },
 };
 
-let _provider = paperProvider;
-export function setBrokerProvider(p) { _provider = p; }
-export function getBrokerProvider() { return _provider; }
+const oandaProvider = {
+  name: 'oanda',
+  async placeOrder(order) {
+    const res = await OandaService.placeOrder(order);
+    await TradingJournalService.create({
+      market: order.market,
+      direction: order.direction,
+      entry: res.fillPrice || order.entry,
+      stop_loss: order.stop_loss,
+      take_profit: order.take_profit,
+      risk: order.risk,
+      risk_reward: order.risk_reward,
+      setup_quality: order.setup_quality,
+      reason: `[OANDA ${res.orderId || ''}] ${order.reason || ''}`,
+      result: 'open',
+      profit_loss: 0,
+      date: new Date().toISOString().slice(0, 10),
+      session: order.session,
+      status: 'open',
+    });
+    return res;
+  },
+  async cancelOrder(id) {
+    if (!id) return { ok: true };
+    return OandaService.closeTrade(id);
+  },
+};
+
+async function selectProvider() {
+  const s = (await SettingsService.get().catch(() => null)) || {};
+  if (s.oanda_connected && s.oanda_api_token && !s.paper_mode) return oandaProvider;
+  return paperProvider;
+}
+
+export function setBrokerProvider() {}
+export function getBrokerProvider() {
+  return null;
+}
 
 export const BrokerService = {
-  mode() { return _provider.name || 'paper'; },
-  async placeOrder(order) { return _provider.placeOrder(order); },
-  async cancelOrder(id) { return _provider.cancelOrder?.(id); },
+  async mode() {
+    return (await selectProvider()).name;
+  },
+  async placeOrder(order) {
+    return (await selectProvider()).placeOrder(order);
+  },
+  async cancelOrder(id) {
+    return (await selectProvider()).cancelOrder?.(id);
+  },
 };

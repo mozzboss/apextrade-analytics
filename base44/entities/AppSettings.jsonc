@@ -41,6 +41,24 @@
     "kill_switch": {
       "type": "boolean",
       "default": false
+    },
+    "oanda_environment": {
+      "type": "string",
+      "enum": [
+        "practice",
+        "live"
+      ],
+      "default": "practice"
+    },
+    "oanda_api_token": {
+      "type": "string"
+    },
+    "oanda_account_id": {
+      "type": "string"
+    },
+    "oanda_connected": {
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [],

@@ -3,6 +3,7 @@ import { SettingsService, TradingJournalService } from './storage';
 import { evaluateTrade } from './tradeGuards';
 import { computeSignalScore, isBestSetup, gradeFromScore } from './signalEngine';
 import { BrokerService } from './brokerService';
+import { OandaService } from './oandaService';
 
 const SYMBOLS = ['XAUUSD', 'EURUSD'];
 
@@ -39,7 +40,7 @@ export const AutoTradeService = {
     if (!autoMode) {
       add('guard', 'Auto mode is OFF — scan will run but no orders will be placed. Enable in Settings.', 'warn');
     } else {
-      add('init', 'Auto mode ON — qualifying trades will execute automatically (paper).', 'ok');
+      add('init', `Auto mode ON — qualifying trades execute automatically${settings.oanda_connected && !settings.paper_mode ? ' via OANDA (live)' : ' (paper)'}.`, 'ok');
     }
 
     let nextHigh = null;
@@ -84,6 +85,12 @@ export const AutoTradeService = {
         risk_percent: settings.risk_per_trade ?? 0.5,
         risk: ((settings.account_balance ?? 10000) * (settings.risk_per_trade ?? 0.5)) / 100,
       };
+      if (settings.oanda_connected) {
+        try {
+          const px = await OandaService.getPricing(sym);
+          if (px?.mid) { order.entry = px.mid; add('scan', `${sym}: live OANDA price ${px.mid} used for entry.`, 'ok'); }
+        } catch (e) { add('scan', `${sym}: OANDA price unavailable — ${e.message}`, 'warn'); }
+      }
       const guards = evaluateTrade({
         trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total,
       });
@@ -96,11 +103,11 @@ export const AutoTradeService = {
     for (const c of candidates) {
       if (c.guards.allowed) {
         if (autoMode) {
-          add('execute', `${c.symbol}: guards passed — placing paper order…`, 'running');
+          add('execute', `${c.symbol}: guards passed — placing ${settings.oanda_connected && !settings.paper_mode ? 'live OANDA' : 'paper'} order…`, 'running');
           try {
             const res = await BrokerService.placeOrder(c.order);
             executed.push({ ...c, result: res });
-            add('execute', `${c.symbol}: ✅ ${c.order.direction} placed (paper). Entry ${c.order.entry}, R/R 1:${c.order.risk_reward?.toFixed(1)}`, 'success');
+            add('execute', `${c.symbol}: ✅ ${c.order.direction} placed (${c.result?.mode === 'live' ? 'live OANDA' : 'paper'}). Entry ${c.order.entry}, R/R 1:${c.order.risk_reward?.toFixed(1)}`, 'success');
           } catch (e) {
             add('execute', `${c.symbol}: execution failed — ${e.message}`, 'error');
           }

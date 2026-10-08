@@ -65,6 +65,10 @@ export default function OrderPreviewModal({ open, analysis, symbol, onClosed, on
     qualityScore: analysis ? (computeSignalScore(analysis)?.total) : null,
   }) : { allowed: false, reasons: ['Loading risk checks…'] };
 
+  const brokerMode = ctx?.settings?.oanda_connected && ctx?.settings?.oanda_api_token && !ctx?.settings?.paper_mode
+    ? `OANDA ${ctx?.settings?.oanda_environment === 'live' ? 'Live' : 'Practice'}`
+    : 'Paper';
+
   async function confirm() {
     setSubmitting(true); setError(null);
     try {
@@ -120,7 +124,7 @@ export default function OrderPreviewModal({ open, analysis, symbol, onClosed, on
             {error && <div className="text-xs text-bearish mt-2">{error}</div>}
 
             <div className="text-[11px] text-muted-foreground mt-2">
-              Mode: <span className="text-foreground font-medium">{BrokerService.mode()}</span> · Manual confirmation required. No auto-execution.
+              Mode: <span className="text-foreground font-medium">{brokerMode}</span> · Manual confirmation required. No auto-execution.
             </div>
           </>
         )}

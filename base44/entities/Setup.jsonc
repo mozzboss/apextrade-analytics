@@ -1,0 +1,110 @@
+{
+  "name": "Setup",
+  "type": "object",
+  "properties": {
+    "market": {
+      "type": "string"
+    },
+    "bias": {
+      "type": "string"
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "BUY",
+        "SELL",
+        "NONE"
+      ]
+    },
+    "entry_zone_low": {
+      "type": "number"
+    },
+    "entry_zone_high": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "tp1": {
+      "type": "number"
+    },
+    "tp2": {
+      "type": "number"
+    },
+    "tp3": {
+      "type": "number"
+    },
+    "risk_reward": {
+      "type": "number"
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "risk_level": {
+      "type": "string"
+    },
+    "quality_score": {
+      "type": "number"
+    },
+    "quality_grade": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "default": "WATCHING"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "invalidation": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "market"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

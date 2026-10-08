@@ -1,0 +1,88 @@
+{
+  "name": "AppSettings",
+  "type": "object",
+  "properties": {
+    "account_balance": {
+      "type": "number",
+      "default": 10000
+    },
+    "risk_per_trade": {
+      "type": "number",
+      "default": 0.5
+    },
+    "max_risk": {
+      "type": "number",
+      "default": 1
+    },
+    "min_risk_reward": {
+      "type": "number",
+      "default": 2
+    },
+    "news_blackout_minutes": {
+      "type": "number",
+      "default": 30
+    },
+    "paper_mode": {
+      "type": "boolean",
+      "default": true
+    },
+    "auto_mode": {
+      "type": "boolean",
+      "default": false
+    },
+    "max_trades_per_day": {
+      "type": "number",
+      "default": 5
+    },
+    "daily_loss_limit": {
+      "type": "number",
+      "default": 3
+    },
+    "kill_switch": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

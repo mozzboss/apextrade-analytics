@@ -1,0 +1,59 @@
+{
+  "name": "EconomicEvent",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "time": {
+      "type": "string"
+    },
+    "expected": {
+      "type": "string"
+    },
+    "previous": {
+      "type": "string"
+    },
+    "actual": {
+      "type": "string"
+    },
+    "impact": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "default": "MEDIUM"
+    }
+  },
+  "required": [
+    "event",
+    "date"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

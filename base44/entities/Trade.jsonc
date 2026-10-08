@@ -1,0 +1,117 @@
+{
+  "name": "Trade",
+  "type": "object",
+  "properties": {
+    "market": {
+      "type": "string"
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "BUY",
+        "SELL"
+      ]
+    },
+    "entry": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "take_profit": {
+      "type": "number"
+    },
+    "risk": {
+      "type": "number"
+    },
+    "risk_reward": {
+      "type": "number"
+    },
+    "setup_quality": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "open",
+        "win",
+        "loss",
+        "breakeven",
+        "cancelled"
+      ],
+      "default": "open"
+    },
+    "profit_loss": {
+      "type": "number",
+      "default": 0
+    },
+    "mistakes": {
+      "type": "string"
+    },
+    "lessons": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "session": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "default": "open"
+    },
+    "screenshot_uri": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "market",
+    "direction"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

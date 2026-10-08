@@ -29,20 +29,80 @@ export const SYMBOL_META = {
     display: 'XAU/USD',
     name: 'Gold vs US Dollar',
     kind: 'metal',
-    // 1 lot = 100 oz; $1 move = $100 per lot
     contractSize: 100,
     pointValuePerLot: 100,
     decimals: 2,
+    macroFocus: 'DXY, US Treasury yields, Federal Reserve expectations, inflation (CPI/PPI/PCE), NFP, unemployment, GDP, interest rates, FOMC, Fed speeches, geopolitical risk, risk-on/risk-off sentiment, gold futures positioning.',
   },
   EURUSD: {
     display: 'EUR/USD',
     name: 'Euro vs US Dollar',
     kind: 'forex',
-    // 1 lot = 100,000 units; 1 pip (0.0001) = $10 per lot
     contractSize: 100000,
-    pointValuePerLot: 10, // per pip (0.0001)
+    pointValuePerLot: 10,
     pipSize: 0.0001,
     decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, ECB, US rates, European rates, CPI, PCE, NFP, European inflation, European GDP, PMI, ECB speeches, Fed speeches, interest rate expectations, US vs European economic strength.',
+  },
+  GBPUSD: {
+    display: 'GBP/USD',
+    name: 'British Pound vs US Dollar',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 10,
+    pipSize: 0.0001,
+    decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, Bank of England, US rates, UK rates, CPI, PCE, NFP, UK inflation, UK GDP, PMI, BoE speeches, Fed speeches, US vs UK economic strength.',
+  },
+  USDJPY: {
+    display: 'USD/JPY',
+    name: 'US Dollar vs Japanese Yen',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 1000,
+    pipSize: 0.01,
+    decimals: 3,
+    macroFocus: 'DXY, Federal Reserve, Bank of Japan, US rates, JGB yields, CPI, PCE, NFP, Japan inflation, Japan GDP, BoJ speeches, Fed speeches, intervention risk, US vs Japan rate differential.',
+  },
+  AUDUSD: {
+    display: 'AUD/USD',
+    name: 'Australian Dollar vs US Dollar',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 10,
+    pipSize: 0.0001,
+    decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, RBA, China data, iron ore, commodities, US vs Australia rates, CPI, NFP, Australia inflation, GDP, RBA speeches, Fed speeches, risk sentiment.',
+  },
+  USDCAD: {
+    display: 'USD/CAD',
+    name: 'US Dollar vs Canadian Dollar',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 10,
+    pipSize: 0.0001,
+    decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, Bank of Canada, oil prices, US vs Canada rates, CPI, NFP, Canada inflation, GDP, BoC speeches, Fed speeches, crude oil impact on CAD.',
+  },
+  NZDUSD: {
+    display: 'NZD/USD',
+    name: 'New Zealand Dollar vs US Dollar',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 10,
+    pipSize: 0.0001,
+    decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, RBNZ, China data, dairy prices, commodities, US vs NZ rates, CPI, NFP, NZ inflation, GDP, RBNZ speeches, Fed speeches, risk sentiment.',
+  },
+  USDCHF: {
+    display: 'USD/CHF',
+    name: 'US Dollar vs Swiss Franc',
+    kind: 'forex',
+    contractSize: 100000,
+    pointValuePerLot: 10,
+    pipSize: 0.0001,
+    decimals: 5,
+    macroFocus: 'DXY, Federal Reserve, SNB, US vs Switzerland rates, safe-haven flows, CPI, NFP, SNB speeches, Fed speeches, EUR/CHF flows.',
   },
 };
 
@@ -265,10 +325,7 @@ export const MarketDataService = {
     const c = cached(key);
     if (c) return c;
     const meta = SYMBOL_META[symbol];
-    const macroFocus =
-      symbol === 'XAUUSD'
-        ? 'DXY, US Treasury yields, Federal Reserve expectations, inflation (CPI/PPI/PCE), NFP, unemployment, GDP, interest rates, FOMC, Fed speeches, geopolitical risk, risk-on/risk-off sentiment, gold futures positioning.'
-        : 'DXY, Federal Reserve, ECB, US rates, European rates, CPI, PCE, NFP, European inflation, European GDP, PMI, ECB speeches, Fed speeches, interest rate expectations, US vs European economic strength.';
+    const macroFocus = meta.macroFocus || 'DXY, Federal Reserve, central bank policy, interest rates, CPI, NFP, GDP, PMI, relevant central bank speeches, US economic strength.';
     const prompt = `You are a senior market analyst with 20+ years experience. Provide a COMPLETE professional analysis of ${meta.display} (${meta.name}) as of right now, ${new Date().toUTCString()}, using live web data. Include:
 1) snapshot: live current price, daily change, direction, trend, volatility, support, resistance, today/prev day highs/lows, session, signal, confidence, risk_level, timestamp.
 2) market_structure: label (BULLISH STRUCTURE/BEARISH STRUCTURE/RANGE/REVERSAL POSSIBLE/WAITING FOR CONFIRMATION), higher_highs, higher_lows, break_of_structure, change_of_character, notes.

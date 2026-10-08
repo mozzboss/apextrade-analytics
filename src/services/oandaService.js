@@ -7,8 +7,16 @@ import { SettingsService } from './storage';
 // (owner-only via RLS). Practice and live environments are supported.
 // ---------------------------------------------------------------------------
 
-const SYMBOL_TO_OANDA = { XAUUSD: 'XAU_USD', EURUSD: 'EUR_USD' };
-const OANDA_TO_SYMBOL = { XAU_USD: 'XAUUSD', EUR_USD: 'EURUSD' };
+const SYMBOL_TO_OANDA = {
+  XAUUSD: 'XAU_USD', EURUSD: 'EUR_USD', GBPUSD: 'GBP_USD', USDJPY: 'USD_JPY',
+  AUDUSD: 'AUD_USD', USDCAD: 'USD_CAD', NZDUSD: 'NZD_USD', USDCHF: 'USD_CHF',
+};
+const OANDA_TO_SYMBOL = Object.fromEntries(Object.entries(SYMBOL_TO_OANDA).map(([k, v]) => [v, k]));
+// Quote currency per symbol — used to size units correctly for non-USD-quoted pairs
+const QUOTE = {
+  XAUUSD: 'USD', EURUSD: 'USD', GBPUSD: 'USD', USDJPY: 'JPY',
+  AUDUSD: 'USD', USDCAD: 'CAD', NZDUSD: 'USD', USDCHF: 'CHF',
+};
 
 const BASE = {
   practice: 'https://api-fxpractice.oanda.com',
@@ -102,8 +110,12 @@ export const OandaService = {
     const riskAmount = Number(order.risk) || 0;
     const stopDist = Math.abs(entry - sl);
     if (!stopDist || !riskAmount) throw new Error('Cannot size position: need entry, stop_loss and risk');
-    // units = riskAmount(USD) / stopDistance(price) — valid for USD-quoted instruments
-    let units = Math.max(1, Math.round(riskAmount / stopDist));
+    // units = riskAmount / stopDistance, converted to the instrument's quote
+    // currency so sizing is correct for non-USD-quoted pairs (USD/JPY, USD/CAD, USD/CHF).
+    const quote = QUOTE[order.market] || 'USD';
+    let units = riskAmount / stopDist;
+    if (quote !== 'USD') units = units * entry;
+    units = Math.max(1, Math.round(units));
     if (order.direction === 'SELL') units = -units;
     const body = {
       order: {

@@ -5,7 +5,7 @@ import { computeSignalScore, isBestSetup, gradeFromScore } from './signalEngine'
 import { BrokerService } from './brokerService';
 import { OandaService } from './oandaService';
 
-const SYMBOLS = ['XAUUSD', 'EURUSD'];
+const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD', 'USDCHF'];
 
 // ---------------------------------------------------------------------------
 // AutoTradeService — full automated trading engine.

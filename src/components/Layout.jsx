@@ -3,7 +3,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 import {
   LayoutDashboard, LineChart, CandlestickChart, Target, CalendarDays,
   Newspaper, Bell, BookOpen, BarChart3, Bot, Settings, Menu, X,
-  Coins, DollarSign, TrendingUp,
+  Coins, DollarSign, TrendingUp, Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAlertMonitor } from '@/hooks/useAlertMonitor';
@@ -20,6 +20,7 @@ const NAV = [
   { to: '/alerts', label: 'Alerts', icon: Bell },
   { to: '/journal', label: 'Journal', icon: BookOpen },
   { to: '/performance', label: 'Performance', icon: BarChart3 },
+  { to: '/auto-trade', label: 'Auto-Trade', icon: Cpu },
   { to: '/ai', label: 'AI Analyst', icon: Bot },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

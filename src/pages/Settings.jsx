@@ -69,9 +69,10 @@ export default function Settings() {
                   <label className="flex items-center gap-2 text-sm text-bearish"><input type="radio" checked={form.kill_switch} onChange={() => set('kill_switch', true)} /> Halt All</label>
                 </div>
               </Field>
-              <Field label="Auto Mode" hint="Off — manual confirmation only">
+              <Field label="Auto Mode" hint="ON = auto-trade engine executes qualifying setups (paper). OFF = scan only.">
                 <div className="flex items-center gap-3 mt-1">
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="radio" checked={!form.auto_mode} onChange={() => set('auto_mode', false)} disabled /> Manual (locked)</label>
+                  <label className="flex items-center gap-2 text-sm"><input type="radio" checked={!form.auto_mode} onChange={() => set('auto_mode', false)} /> Manual</label>
+                  <label className="flex items-center gap-2 text-sm text-bullish"><input type="radio" checked={form.auto_mode} onChange={() => set('auto_mode', true)} /> Auto-Execute</label>
                 </div>
               </Field>
               <Field label="Max Trades / Day"><input type="number" value={form.max_trades_per_day} onChange={(e) => set('max_trades_per_day', Number(e.target.value))} className="input-field" /></Field>

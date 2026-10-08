@@ -23,6 +23,7 @@ import Alerts from '@/pages/Alerts';
 import Journal from '@/pages/Journal';
 import Performance from '@/pages/Performance';
 import AIAnalyst from '@/pages/AIAnalyst';
+import AutoTrade from '@/pages/AutoTrade';
 import Settings from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
@@ -68,6 +69,7 @@ const AuthenticatedApp = () => {
           <Route path="/journal" element={<Journal />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/ai" element={<AIAnalyst />} />
+          <Route path="/auto-trade" element={<AutoTrade />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>

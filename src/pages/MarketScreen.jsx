@@ -2,7 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { RefreshCw, Activity, BarChart3, Newspaper, ShieldCheck, Brain } from 'lucide-react';
 import { MarketDataService, TIMEFRAMES, SYMBOL_META, NewsService, clearCache } from '@/services/marketData';
+import { SettingsService } from '@/services/storage';
+import { OandaService } from '@/services/oandaService';
 import { cn } from '@/lib/utils';
+
+const TF_TO_GRAN = { '5M': 'M5', '15M': 'M15', '30M': 'M30', '1H': 'H1', '4H': 'H4', 'D': 'D', 'W': 'W' };
 import PriceChart from '@/components/PriceChart';
 import SectionCard from '@/components/SectionCard';
 import SignalBadge from '@/components/SignalBadge';
@@ -26,6 +30,9 @@ export default function MarketScreen() {
   const [chartLoading, setChartLoading] = useState(true);
   const [news, setNews] = useState([]);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [live, setLive] = useState(null);
+  const baseSym = symbol === 'XAUUSD' ? 'Au' : { EURUSD: '€', GBPUSD: '£', USDJPY: '¥', AUDUSD: 'A$', USDCAD: 'C$', NZDUSD: 'N$', USDCHF: '₣' }[symbol] || '$';
 
   const loadAnalysis = useCallback(async () => {
     setLoading(true);
@@ -35,16 +42,37 @@ export default function MarketScreen() {
 
   const loadChart = useCallback(async () => {
     setChartLoading(true);
-    try { setChart(await MarketDataService.getChart(symbol, tf)); } catch { setChart(null); }
+    let data = null;
+    try {
+      if (settings?.oanda_connected) {
+        const gran = TF_TO_GRAN[tf] || 'M1';
+        const candles = await OandaService.getCandles(symbol, gran, 60);
+        if (candles?.length) data = { data_available: true, candles, timeframe: tf };
+      }
+    } catch {}
+    if (!data) { try { data = await MarketDataService.getChart(symbol, tf); } catch { data = null; } }
+    setChart(data);
     setChartLoading(false);
-  }, [symbol, tf]);
+  }, [symbol, tf, settings]);
 
   useEffect(() => { loadAnalysis(); }, [loadAnalysis]);
   useEffect(() => { loadChart(); }, [loadChart]);
   useEffect(() => { NewsService.getForSymbol(symbol).then(n => setNews(n?.headlines || [])).catch(() => {}); }, [symbol]);
+  useEffect(() => { SettingsService.get().then(setSettings).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!settings?.oanda_connected) { setLive(null); return; }
+    let alive = true;
+    const tick = async () => {
+      try { const p = await OandaService.getPricing(symbol); if (alive && p?.mid) setLive({ bid: p.bid, ask: p.ask, mid: p.mid, time: p.time }); }
+      catch { if (alive) setLive(null); }
+    };
+    tick();
+    const timer = setInterval(tick, 15000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [symbol, settings]);
 
   const snap = analysis?.snapshot;
-  const fmt = (n) => n != null ? Number(n).toLocaleString(undefined, { maximumFractionDigits: gold ? 2 : 5 }) : '—';
+  const fmt = (n) => n != null ? Number(n).toLocaleString(undefined, { maximumFractionDigits: meta.decimals }) : '—';
 
   function refresh() {
     clearCache(`full_${symbol}`); clearCache(`chart_${symbol}_${tf}`); clearCache(`news_${symbol}`);
@@ -58,21 +86,36 @@ export default function MarketScreen() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
-              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold', gold ? 'bg-gold/15 text-gold' : 'bg-chart-4/15 text-chart-4')}>{gold ? 'Au' : '€'}</div>
+              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold', gold ? 'bg-gold/15 text-gold' : 'bg-chart-4/15 text-chart-4')}>{baseSym}</div>
               <div>
                 <h1 className="text-xl font-display font-semibold">{symbol}</h1>
                 <div className="text-xs text-muted-foreground">{meta.name}</div>
               </div>
             </div>
-            {loading ? (
+            {loading && !live ? (
               <div className="h-10 w-48 rounded-md bg-muted animate-pulse mt-2" />
+            ) : live?.mid ? (
+              <div className="mt-1">
+                <div className="flex items-end gap-3">
+                  <div className="text-4xl font-display font-semibold tabular-nums tracking-tight">{fmt(live.mid)}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-bullish pb-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-bullish animate-pulse" /> Live · OANDA
+                  </div>
+                  {analysis?.data_available && (
+                    <div className={cn('flex items-center gap-1 text-sm font-medium pb-1.5', (snap?.daily_change || 0) >= 0 ? 'text-bullish' : 'text-bearish')}>
+                      {(snap?.daily_change || 0) >= 0 ? '+' : ''}{snap?.daily_change?.toFixed(meta.decimals)} ({(snap?.daily_change_pct || 0) >= 0 ? '+' : ''}{snap?.daily_change_pct?.toFixed(2)}%)
+                    </div>
+                  )}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">Bid {fmt(live.bid)} · Ask {fmt(live.ask)}</div>
+              </div>
             ) : !analysis?.data_available ? (
-              <div className="text-sm text-muted-foreground mt-2">Live market data is unavailable.</div>
+              <div className="text-sm text-muted-foreground mt-2">Live market data is unavailable. Connect OANDA in Settings for real-time prices.</div>
             ) : (
               <div className="flex items-end gap-3 mt-1">
                 <div className="text-4xl font-display font-semibold tabular-nums tracking-tight">{fmt(snap?.current_price)}</div>
                 <div className={cn('flex items-center gap-1 text-sm font-medium pb-1.5', (snap?.daily_change || 0) >= 0 ? 'text-bullish' : 'text-bearish')}>
-                  {(snap?.daily_change || 0) >= 0 ? '+' : ''}{snap?.daily_change?.toFixed(gold ? 2 : 5)} ({(snap?.daily_change_pct || 0) >= 0 ? '+' : ''}{snap?.daily_change_pct?.toFixed(2)}%)
+                  {(snap?.daily_change || 0) >= 0 ? '+' : ''}{snap?.daily_change?.toFixed(meta.decimals)} ({(snap?.daily_change_pct || 0) >= 0 ? '+' : ''}{snap?.daily_change_pct?.toFixed(2)}%)
                 </div>
               </div>
             )}
@@ -148,7 +191,7 @@ export default function MarketScreen() {
       </div>
 
       {/* Macro */}
-      <SectionCard title={gold ? 'Gold-Specific Macro Analysis' : 'EURUSD Macro Analysis'} icon={Brain}>
+      <SectionCard title={gold ? 'Gold-Specific Macro Analysis' : `${meta.display} Macro Analysis`} icon={Brain}>
         {analysis?.macro?.factors?.length ? (
           <div className="space-y-2.5">
             {analysis.macro.factors.map((f, i) => (

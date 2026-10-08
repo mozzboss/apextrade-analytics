@@ -36,7 +36,15 @@ export default function MarketScreen() {
 
   const loadAnalysis = useCallback(async () => {
     setLoading(true);
-    try { setAnalysis(await MarketDataService.getFullAnalysis(symbol)); } catch { setAnalysis(null); }
+    let livePrice = null;
+    try {
+      const s = await SettingsService.get();
+      if (s?.oanda_connected) {
+        const p = await OandaService.getPricing(symbol);
+        if (p?.mid) { livePrice = p.mid; setLive({ bid: p.bid, ask: p.ask, mid: p.mid, time: p.time }); }
+      }
+    } catch {}
+    try { setAnalysis(await MarketDataService.getFullAnalysis(symbol, { livePrice })); } catch { setAnalysis(null); }
     setLoading(false);
   }, [symbol]);
 

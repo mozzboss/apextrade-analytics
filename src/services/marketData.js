@@ -307,26 +307,28 @@ async function invoke(prompt, schema) {
 }
 
 export const MarketDataService = {
-  async getSnapshot(symbol) {
-    if (_marketDataProvider?.getSnapshot) return _marketDataProvider.getSnapshot(symbol);
+  async getSnapshot(symbol, opts = {}) {
+    if (_marketDataProvider?.getSnapshot) return _marketDataProvider.getSnapshot(symbol, opts);
     const key = `snap_${symbol}`;
     const c = cached(key);
     if (c) return c;
     const meta = SYMBOL_META[symbol];
-    const prompt = `You are a professional financial market analyst with access to live web data. Provide the CURRENT real-time market snapshot for ${meta.display} (${meta.name}) as of right now, ${new Date().toUTCString()}. Use live data from the web. Fields: current_price (live last price), daily_change (absolute), daily_change_pct, market_direction (Bullish/Bearish/Neutral), trend, volatility (Low/Medium/High), support, resistance, today_high, today_low, prev_day_high, prev_day_low, session (Asian/London/New York/Overlap/Closed), signal (STRONG BUY/BUY/WAIT/SELL/STRONG SELL/NO TRADE), confidence (0-100), risk_level (Low/Medium/High), timestamp. If you cannot find reliable current live price data, set data_available=false and data_note explaining why, and leave numeric fields as 0. Never fabricate a price. Return JSON.`;
+    const priceNote = opts.livePrice != null ? `A reliable live mid price for ${meta.display} is ${opts.livePrice}, sourced from the user's connected OANDA broker. Use this exact value as current_price. You MUST set data_available=true (a live price is available) and complete the snapshot. ` : '';
+    const prompt = `${priceNote}You are a professional financial market analyst with access to live web data. Provide the CURRENT real-time market snapshot for ${meta.display} (${meta.name}) as of right now, ${new Date().toUTCString()}. Use live data from the web. Fields: current_price (live last price), daily_change (absolute), daily_change_pct, market_direction (Bullish/Bearish/Neutral), trend, volatility (Low/Medium/High), support, resistance, today_high, today_low, prev_day_high, prev_day_low, session (Asian/London/New York/Overlap/Closed), signal (STRONG BUY/BUY/WAIT/SELL/STRONG SELL/NO TRADE), confidence (0-100), risk_level (Low/Medium/High), timestamp. If no live price was provided and you cannot find reliable current live price data, set data_available=false and data_note explaining why, and leave numeric fields as 0. Never fabricate a price. Return JSON.`;
     const res = await invoke(prompt, snapshotSchema);
     setCache(key, res);
     return res;
   },
 
-  async getFullAnalysis(symbol) {
-    if (_marketDataProvider?.getFullAnalysis) return _marketDataProvider.getFullAnalysis(symbol);
+  async getFullAnalysis(symbol, opts = {}) {
+    if (_marketDataProvider?.getFullAnalysis) return _marketDataProvider.getFullAnalysis(symbol, opts);
     const key = `full_${symbol}`;
     const c = cached(key);
     if (c) return c;
     const meta = SYMBOL_META[symbol];
     const macroFocus = meta.macroFocus || 'DXY, Federal Reserve, central bank policy, interest rates, CPI, NFP, GDP, PMI, relevant central bank speeches, US economic strength.';
-    const prompt = `You are a senior market analyst with 20+ years experience. Provide a COMPLETE professional analysis of ${meta.display} (${meta.name}) as of right now, ${new Date().toUTCString()}, using live web data. Include:
+    const priceNote = opts.livePrice != null ? `A reliable live mid price for ${meta.display} is ${opts.livePrice}, sourced from the user's connected OANDA broker. Use this exact value as current_price. You MUST set data_available=true (a live price is available) and complete the full analysis. For daily change, support, resistance, indicators, and the setup, use recent web data together with the provided price. ` : '';
+    const prompt = `${priceNote}You are a senior market analyst with 20+ years experience. Provide a COMPLETE professional analysis of ${meta.display} (${meta.name}) as of right now, ${new Date().toUTCString()}, using live web data. Include:
 1) snapshot: live current price, daily change, direction, trend, volatility, support, resistance, today/prev day highs/lows, session, signal, confidence, risk_level, timestamp.
 2) market_structure: label (BULLISH STRUCTURE/BEARISH STRUCTURE/RANGE/REVERSAL POSSIBLE/WAITING FOR CONFIRMATION), higher_highs, higher_lows, break_of_structure, change_of_character, notes.
 3) multi_timeframe: monthly, weekly, daily, h4, h1, m30, m15, m5 (Bullish/Bearish/Neutral/Pullback/Range), overall_bias, overall_status.
@@ -334,7 +336,7 @@ export const MarketDataService = {
 5) setup: a high-quality trade setup (or NO TRADE). status (WATCHING/WAITING FOR CONFIRMATION/READY/NO TRADE), bias, direction (BUY/SELL/NONE), entry_zone_low, entry_zone_high, stop_loss, tp1, tp2, tp3, risk_reward (e.g. 2.4), confidence, risk_level, quality_score (0-100), quality_grade (A+/A/B/C/NO TRADE), reasons (multiple confirmations, never single indicator), invalidation. If no valid setup, return NO TRADE with reasons.
 6) macro: factors array ({factor, impact: Positive/Negative/Neutral, note}), dxy_note, yields_note, sentiment_note. Cover: ${macroFocus}
 7) news: relevant recent headlines ({headline, source, time, impact}).
-Never fabricate prices. If live data unavailable, set data_available=false. Return JSON.`;
+Never fabricate prices. If no live price was provided and you cannot find reliable live data, set data_available=false. When a live price is provided, set data_available=true and complete the analysis. Return JSON.`;
     const res = await invoke(prompt, fullSchema);
     setCache(key, res);
     return res;

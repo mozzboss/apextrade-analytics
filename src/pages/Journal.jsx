@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, X } from 'lucide-react';
-import { TradingJournalService } from '@/services/storage';
+import { TradingJournalService, SettingsService } from '@/services/storage';
+import { PositionSizeService } from '@/services/riskEngine';
 import TradeJournalTable from '@/components/TradeJournalTable';
+import LiveTradeCalc from '@/components/LiveTradeCalc';
 import SectionCard from '@/components/SectionCard';
 import { cn } from '@/lib/utils';
 
@@ -18,27 +20,44 @@ export default function Journal() {
     risk: '', risk_reward: '', setup_quality: 'A', reason: '', session: 'London',
     date: new Date().toISOString().slice(0, 10), result: 'open', profit_loss: '', mistakes: '', lessons: '',
   });
+  const [accountBalance, setAccountBalance] = useState(10000);
+  const [defaultRisk, setDefaultRisk] = useState(0.5);
 
   async function load() {
     setLoading(true);
     try { setTrades(await TradingJournalService.list() || []); } catch { setTrades([]); }
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    SettingsService.get().then(s => {
+      if (s) {
+        setAccountBalance(s.account_balance ?? 10000);
+        setDefaultRisk(s.risk_per_trade ?? 0.5);
+        setForm(f => ({ ...f, risk: f.risk || String(s.risk_per_trade ?? 0.5) }));
+      }
+    }).catch(() => {});
+  }, []);
 
   async function create() {
+    // Auto-calculate risk/reward from entry, stop, and take profit
+    const calc = PositionSizeService.calculate({
+      accountBalance, riskPct: form.risk, entry: form.entry,
+      stopLoss: form.stop_loss, takeProfit: form.take_profit, instrument: form.market,
+    });
+    const autoRR = calc.riskReward ? Number(calc.riskReward.toFixed(2)) : (form.risk_reward ? Number(form.risk_reward) : null);
     const data = {
       ...form,
       entry: form.entry ? Number(form.entry) : null,
       stop_loss: form.stop_loss ? Number(form.stop_loss) : null,
       take_profit: form.take_profit ? Number(form.take_profit) : null,
       risk: form.risk ? Number(form.risk) : null,
-      risk_reward: form.risk_reward ? Number(form.risk_reward) : null,
+      risk_reward: autoRR,
       profit_loss: form.profit_loss ? Number(form.profit_loss) : 0,
     };
     await TradingJournalService.create(data);
     setShowForm(false);
-    setForm({ ...form, entry: '', stop_loss: '', take_profit: '', risk: '', risk_reward: '', reason: '', profit_loss: '', mistakes: '', lessons: '' });
+    setForm({ ...form, entry: '', stop_loss: '', take_profit: '', risk: String(defaultRisk), risk_reward: '', reason: '', profit_loss: '', mistakes: '', lessons: '' });
     load();
   }
   async function remove(id) { await TradingJournalService.remove(id); load(); }
@@ -82,6 +101,15 @@ export default function Journal() {
             <div className="sm:col-span-3 lg:col-span-2"><FormField label="Mistakes"><input value={form.mistakes} onChange={(e) => setForm({ ...form, mistakes: e.target.value })} className="input-field" /></FormField></div>
             <div className="sm:col-span-3 lg:col-span-2"><FormField label="Lessons"><input value={form.lessons} onChange={(e) => setForm({ ...form, lessons: e.target.value })} className="input-field" /></FormField></div>
           </div>
+          <LiveTradeCalc
+            market={form.market}
+            entry={form.entry}
+            stopLoss={form.stop_loss}
+            takeProfit={form.take_profit}
+            risk={form.risk}
+            accountBalance={accountBalance}
+            onUseLivePrice={(p) => setForm({ ...form, entry: String(p) })}
+          />
           <div className="flex justify-end mt-4">
             <button onClick={create} className="px-5 py-2 rounded-lg bg-bullish text-bullish-foreground text-sm font-medium">Save Trade</button>
           </div>

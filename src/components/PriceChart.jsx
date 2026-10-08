@@ -3,14 +3,15 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, C
 import { cn } from '@/lib/utils';
 
 function CandleShape(props) {
-  const { x, y, width, height, low, high, open, close, yAxis } = props;
-  if (width == null || height == null) return null;
+  const { x, y, width, height, low, high, open, close } = props;
+  if (width == null || height == null || high == null || low == null) return null;
   const cx = x + width / 2;
-  const yScale = yAxis.scale;
-  const yHigh = yScale(high);
-  const yLow = yScale(low);
-  const yOpen = yScale(open);
-  const yClose = yScale(close);
+  // Bar spans [low, high]: y = pixel of high, y + height = pixel of low
+  const ratio = high !== low ? height / (high - low) : 0;
+  const yHigh = y;
+  const yLow = y + height;
+  const yOpen = y + (high - open) * ratio;
+  const yClose = y + (high - close) * ratio;
   const bull = close >= open;
   const color = bull ? 'hsl(142 68% 45%)' : 'hsl(0 72% 56%)';
   const bodyTop = Math.min(yOpen, yClose);
@@ -68,7 +69,7 @@ export default function PriceChart({ candles = [], support, resistance, gold = f
           <Tooltip content={<ChartTooltip gold={gold} />} />
           {support != null && <ReferenceLine y={support} stroke="hsl(142 68% 45%)" strokeDasharray="4 4" strokeOpacity={0.5} />}
           {resistance != null && <ReferenceLine y={resistance} stroke="hsl(0 72% 56%)" strokeDasharray="4 4" strokeOpacity={0.5} />}
-          <Bar dataKey="high" fill="transparent" shape={<CandleShape gold={gold} />} />
+          <Bar dataKey={(d) => [d.low, d.high]} fill="transparent" isAnimationActive={false} shape={<CandleShape gold={gold} />} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

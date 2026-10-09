@@ -1,113 +1,120 @@
 import React, { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { computeWinRate, computeAdvancedStats } from '@/services/performanceStats';
+import { flagUnderperformingStrategies } from '@/services/learningService';
 
-function computeStats(trades) {
-  const closed = trades.filter((t) => t.result === 'win' || t.result === 'loss');
-  const wins = closed.filter((t) => t.result === 'win');
-  const losses = closed.filter((t) => t.result === 'loss');
-  const totalPnL = trades.reduce((s, t) => s + (Number(t.profit_loss) || 0), 0);
-  const grossWin = wins.reduce((s, t) => s + (Number(t.profit_loss) || 0), 0);
-  const grossLoss = Math.abs(losses.reduce((s, t) => s + (Number(t.profit_loss) || 0), 0));
-  const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
-  const avgWin = wins.length ? grossWin / wins.length : 0;
-  const avgLoss = losses.length ? grossLoss / losses.length : 0;
-  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : 0;
-  const avgRR = trades.filter((t) => t.risk_reward).reduce((s, t) => s + t.risk_reward, 0) / (trades.filter((t) => t.risk_reward).length || 1);
+const PRIORITY_MARKETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY'];
 
-  // drawdown
-  const sorted = [...trades].sort((a, b) => new Date(a.date || a.created_date) - new Date(b.date || b.created_date));
-  let equity = 0, peak = 0, maxDD = 0, curDD = 0;
-  for (const t of sorted) {
-    equity += Number(t.profit_loss) || 0;
-    peak = Math.max(peak, equity);
-    const dd = peak - equity;
-    maxDD = Math.max(maxDD, dd);
-    curDD = peak - equity;
-  }
-
-  const byKey = (key) => {
-    const map = {};
-    for (const t of trades) {
-      const k = t[key];
-      if (!k) continue;
-      map[k] = (map[k] || 0) + (Number(t.profit_loss) || 0);
-    }
-    return map;
-  };
-  const bySession = byKey('session');
-  const byMarket = byKey('market');
-  const byQuality = byKey('setup_quality');
-
-  const bestSetup = Object.entries(byQuality).sort((a, b) => b[1] - a[1])[0];
-  const worstSetup = Object.entries(byQuality).sort((a, b) => a[1] - b[1])[0];
-
-  return { total: trades.length, closed: closed.length, wins: wins.length, losses: losses.length, winRate, avgWin, avgLoss, avgRR, profitFactor, totalPnL, maxDD, curDD, bySession, byMarket, byQuality, bestSetup, worstSetup };
+function fmtCI(ci) {
+  if (ci == null) return '';
+  return `${ci.low.toFixed(0)}–${ci.high.toFixed(0)}%`;
 }
 
 export default function PerformanceStats({ trades = [] }) {
-  const s = useMemo(() => computeStats(trades), [trades]);
+  const wr = useMemo(() => computeWinRate(trades), [trades]);
+  const adv = useMemo(() => computeAdvancedStats(trades), [trades]);
+  const flagged = useMemo(() => flagUnderperformingStrategies(trades), [trades]);
 
   return (
     <div className="space-y-5">
+      {/* Overall headline metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Stat label="Total Trades" value={s.total} />
-        <Stat label="Wins" value={s.wins} tone="bullish" />
-        <Stat label="Losses" value={s.losses} tone="bearish" />
-        <Stat label="Win Rate" value={`${s.winRate.toFixed(1)}%`} tone={s.winRate >= 50 ? 'bullish' : 'bearish'} />
-        <Stat label="Net P/L" value={`${s.totalPnL >= 0 ? '+' : ''}$${s.totalPnL.toFixed(2)}`} tone={s.totalPnL >= 0 ? 'bullish' : 'bearish'} />
-        <Stat label="Profit Factor" value={s.profitFactor === Infinity ? '∞' : s.profitFactor.toFixed(2)} tone={s.profitFactor >= 1.5 ? 'bullish' : 'bearish'} />
-        <Stat label="Avg Win" value={`$${s.avgWin.toFixed(2)}`} tone="bullish" />
-        <Stat label="Avg Loss" value={`$${s.avgLoss.toFixed(2)}`} tone="bearish" />
-        <Stat label="Avg R/R" value={`1:${s.avgRR.toFixed(1)}`} />
-        <Stat label="Max Drawdown" value={`$${s.maxDD.toFixed(2)}`} tone="bearish" />
-        <Stat label="Current Drawdown" value={`$${s.curDD.toFixed(2)}`} tone={s.curDD > 0 ? 'bearish' : 'bullish'} />
-        <Stat label="Closed" value={s.closed} />
+        <Stat label="Win Rate" value={wr.decisive ? `${wr.winRate.toFixed(1)}%` : '—'}
+          sub={wr.decisive ? `n=${wr.decisive} · CI ${fmtCI(wr.ci)}` : 'No closed trades'}
+          tone={wr.winRate >= 50 ? 'bullish' : wr.decisive ? 'bearish' : undefined} />
+        <Stat label="Net P/L" value={`${adv.netPnL >= 0 ? '+' : ''}$${adv.netPnL.toFixed(2)}`} tone={adv.netPnL >= 0 ? 'bullish' : 'bearish'} />
+        <Stat label="Profit Factor" value={adv.profitFactor === Infinity ? '∞' : adv.profitFactor.toFixed(2)} tone={adv.profitFactor >= 1.5 ? 'bullish' : 'bearish'} />
+        <Stat label="EV / Trade" value={`${adv.expectedValue >= 0 ? '+' : ''}$${adv.expectedValue.toFixed(2)}`} tone={adv.expectedValue >= 0 ? 'bullish' : 'bearish'} />
+        <Stat label="Break-even Win Rate" value={`${adv.breakEvenWinRate.toFixed(1)}%`} />
+        <Stat label="Avg R/R" value={adv.avgRR ? `1:${adv.avgRR.toFixed(1)}` : '—'} />
+        <Stat label="Avg Win" value={`$${adv.avgWin.toFixed(2)}`} tone="bullish" />
+        <Stat label="Avg Loss" value={`$${adv.avgLoss.toFixed(2)}`} tone="bearish" />
+        <Stat label="Max Drawdown" value={`$${adv.maxDrawdown.toFixed(2)}`} tone="bearish" />
+        <Stat label="Longest Loss Streak" value={adv.longestLossStreak} tone={adv.longestLossStreak >= 3 ? 'bearish' : undefined} />
+        <Stat label="Current Loss Streak" value={adv.currentLossStreak} tone={adv.currentLossStreak > 0 ? 'bearish' : 'bullish'} />
+        <Stat label="Break-even Trades" value={wr.breakeven} />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <Breakdown title="By Market" data={s.byMarket} />
-        <Breakdown title="By Session" data={s.bySession} />
-        <Breakdown title="By Setup Quality" data={s.byQuality} />
+      {wr.decisive < 20 && wr.decisive > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/5 px-3.5 py-2.5 text-xs text-warn">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          Small sample (n={wr.decisive}). Win rate confidence is low — treat all rates as indicative until ≥20 decisive trades per group.
+        </div>
+      )}
+
+      {/* Win rate by market — priority pairs first */}
+      <WinRateTable title="Win Rate by Market" groups={wr.byMarket} priorityKeys={PRIORITY_MARKETS} />
+
+      {/* Win rate by strategy / session / timeframe / market condition */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <WinRateTable title="Win Rate by Strategy" groups={wr.byStrategy} />
+        <WinRateTable title="Win Rate by Session" groups={wr.bySession} />
+        <WinRateTable title="Win Rate by Timeframe" groups={wr.byTimeframe} />
+        <WinRateTable title="Win Rate by Market Condition" groups={wr.byMarketCondition} />
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Best Setup Type</div>
-          <div className="text-sm font-semibold text-bullish">{s.bestSetup?.[0] || '—'} <span className="text-muted-foreground font-normal">({s.bestSetup ? `${s.bestSetup[1] >= 0 ? '+' : ''}$${s.bestSetup[1].toFixed(2)}` : ''})</span></div>
+      {/* Underperforming strategies */}
+      {flagged.length > 0 && (
+        <div className="rounded-xl border border-bearish/30 bg-bearish/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-bearish mb-2">
+            <AlertTriangle className="w-4 h-4" /> Strategies Flagged for Review
+          </div>
+          <div className="space-y-1.5">
+            {flagged.map((f) => (
+              <div key={f.strategy} className="flex items-center justify-between text-xs">
+                <span className="text-foreground font-medium">{f.strategy}</span>
+                <span className="text-bearish tabular-nums">{f.winRate.toFixed(1)}% win · n={f.sampleSize} · CI {fmtCI(f.ci)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-2">Review and recalibrate before allowing these setups to trade live again. No automatic strategy changes are applied.</div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Worst Setup Type</div>
-          <div className="text-sm font-semibold text-bearish">{s.worstSetup?.[0] || '—'} <span className="text-muted-foreground font-normal">({s.worstSetup ? `${s.worstSetup[1] >= 0 ? '+' : ''}$${s.worstSetup[1].toFixed(2)}` : ''})</span></div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function Stat({ label, value, tone }) {
+function Stat({ label, value, sub, tone }) {
   return (
     <div className="rounded-xl border border-border bg-card px-3.5 py-3">
       <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1">{label}</div>
       <div className={cn('text-base font-semibold tabular-nums', tone === 'bullish' ? 'text-bullish' : tone === 'bearish' ? 'text-bearish' : 'text-foreground')}>{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-function Breakdown({ title, data }) {
-  const entries = Object.entries(data);
+function WinRateTable({ title, groups, priorityKeys }) {
+  const entries = Object.entries(groups || {});
+  if (!entries.length) return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-sm font-semibold mb-2">{title}</div>
+      <div className="text-xs text-muted-foreground">No closed trades yet.</div>
+    </div>
+  );
+  const ordered = [
+    ...(priorityKeys || []).map((k) => [k, groups[k]]).filter(([, g]) => g),
+    ...entries.filter(([k]) => !(priorityKeys || []).includes(k)),
+  ].sort((a, b) => b[1].decisive - a[1].decisive);
+
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="text-sm font-semibold mb-3">{title}</div>
-      {entries.length === 0 ? <div className="text-xs text-muted-foreground">No data</div> : (
-        <div className="space-y-2">
-          {entries.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{k}</span>
-              <span className={cn('tabular-nums font-medium', v >= 0 ? 'text-bullish' : 'text-bearish')}>{v >= 0 ? '+' : ''}${v.toFixed(2)}</span>
+      <div className="space-y-2">
+        {ordered.map(([k, g]) => (
+          <div key={k} className="flex items-center justify-between text-sm gap-3">
+            <span className="text-muted-foreground truncate">{k || '—'}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-[11px] text-muted-foreground tabular-nums">n={g.sampleSize}</span>
+              <span className={cn('tabular-nums font-medium w-16 text-right', g.winRate >= 50 ? 'text-bullish' : g.sampleSize > 0 ? 'text-bearish' : 'text-muted-foreground')}>
+                {g.sampleSize ? `${g.winRate.toFixed(1)}%` : '—'}
+              </span>
+              <span className="text-[10px] text-muted-foreground tabular-nums w-20 text-right">{g.sampleSize ? `CI ${fmtCI(g.ci)}` : ''}</span>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

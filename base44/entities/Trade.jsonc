@@ -67,6 +67,45 @@
     },
     "screenshot_uri": {
       "type": "string"
+    },
+    "strategy": {
+      "type": "string"
+    },
+    "timeframe": {
+      "type": "string"
+    },
+    "market_condition": {
+      "type": "string",
+      "enum": [
+        "trending",
+        "ranging",
+        "volatile",
+        "mixed"
+      ]
+    },
+    "entry_conditions": {
+      "type": "string"
+    },
+    "predicted_probability": {
+      "type": "number"
+    },
+    "expected_value": {
+      "type": "number"
+    },
+    "execution_costs": {
+      "type": "number",
+      "default": 0
+    },
+    "prediction_outcome": {
+      "type": "string",
+      "enum": [
+        "correct",
+        "incorrect",
+        "pending"
+      ]
+    },
+    "parent_trade_id": {
+      "type": "string"
     }
   },
   "required": [

@@ -26,6 +26,13 @@ const paperProvider = {
       date: new Date().toISOString().slice(0, 10),
       session: order.session,
       status: 'open',
+      strategy: order.strategy,
+      timeframe: order.timeframe,
+      market_condition: order.market_condition,
+      entry_conditions: order.entry_conditions,
+      predicted_probability: order.predicted_probability,
+      expected_value: order.expected_value,
+      prediction_outcome: order.predicted_probability != null ? 'pending' : undefined,
     });
     return { ok: true, provider: 'paper', mode: 'paper', tradeId: trade.id };
   },
@@ -54,6 +61,13 @@ const oandaProvider = {
       date: new Date().toISOString().slice(0, 10),
       session: order.session,
       status: 'open',
+      strategy: order.strategy,
+      timeframe: order.timeframe,
+      market_condition: order.market_condition,
+      entry_conditions: order.entry_conditions,
+      predicted_probability: order.predicted_probability,
+      expected_value: order.expected_value,
+      prediction_outcome: order.predicted_probability != null ? 'pending' : undefined,
     });
     return res;
   },

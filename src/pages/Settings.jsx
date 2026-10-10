@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Check, Loader2, Plug, CheckCircle2 } from 'lucide-react';
 import { SettingsService } from '@/services/storage';
 import { OandaService } from '@/services/oandaService';
-import { DEFAULTS } from '@/services/riskEngine';
+import { AUTO_SIZE_LABELS, DEFAULTS, getAutoRiskPercent } from '@/services/riskEngine';
 import SectionCard from '@/components/SectionCard';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +10,8 @@ export default function Settings() {
   const [form, setForm] = useState({
     account_balance: 10000, risk_per_trade: DEFAULTS.riskPerTrade, max_risk: DEFAULTS.maxRisk,
     min_risk_reward: DEFAULTS.minRiskReward, news_blackout_minutes: DEFAULTS.newsBlackoutMinutes, paper_mode: true,
-    auto_mode: false, max_trades_per_day: 5, daily_loss_limit: 3, kill_switch: false,
+    auto_mode: false, auto_require_confirmation: true, auto_size_profile: 'small',
+    max_trades_per_day: 5, daily_loss_limit: 3, kill_switch: false,
     oanda_environment: 'practice', oanda_api_token: '', oanda_account_id: '', oanda_connected: false,
   });
   const [saved, setSaved] = useState(false);
@@ -31,6 +32,9 @@ export default function Settings() {
   }
 
   function set(k, v) { setForm({ ...form, [k]: v }); }
+
+  const autoRiskPct = getAutoRiskPercent(form);
+  const autoRiskUsd = (Number(form.account_balance) || 0) * autoRiskPct / 100;
 
   async function testOanda() {
     setTesting(true);
@@ -93,10 +97,25 @@ export default function Settings() {
                   <label className="flex items-center gap-2 text-sm text-bearish"><input type="radio" checked={form.kill_switch} onChange={() => set('kill_switch', true)} /> Halt All</label>
                 </div>
               </Field>
-              <Field label="Auto Mode" hint="ON = auto-trade engine executes qualifying setups (paper). OFF = scan only.">
+              <Field label="Auto Mode" hint="ON = scans can be reviewed or executed automatically. OFF = scan only.">
                 <div className="flex items-center gap-3 mt-1">
                   <label className="flex items-center gap-2 text-sm"><input type="radio" checked={!form.auto_mode} onChange={() => set('auto_mode', false)} /> Manual</label>
                   <label className="flex items-center gap-2 text-sm text-bullish"><input type="radio" checked={form.auto_mode} onChange={() => set('auto_mode', true)} /> Auto-Execute</label>
+                </div>
+              </Field>
+              <Field label="Review Before Execution" hint="Recommended: inspect entry, stop-loss, take-profit, max loss, and target profit before placing each trade.">
+                <div className="flex items-center gap-3 mt-1">
+                  <label className="flex items-center gap-2 text-sm text-bullish"><input type="radio" checked={form.auto_require_confirmation !== false} onChange={() => set('auto_require_confirmation', true)} /> Review first</label>
+                  <label className="flex items-center gap-2 text-sm text-bearish"><input type="radio" checked={form.auto_require_confirmation === false} onChange={() => set('auto_require_confirmation', false)} /> Fully automatic</label>
+                </div>
+              </Field>
+              <Field label="Auto-Trade Size" hint={`${autoRiskPct.toFixed(2)}% risk · up to $${autoRiskUsd.toFixed(2)} loss per trade`}>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {Object.entries(AUTO_SIZE_LABELS).map(([value, label]) => (
+                    <label key={value} className={cn('flex items-center gap-2 text-sm', value === 'big' && 'text-bearish')}>
+                      <input type="radio" checked={(form.auto_size_profile || 'small') === value} onChange={() => set('auto_size_profile', value)} /> {label}
+                    </label>
+                  ))}
                 </div>
               </Field>
               <Field label="Max Trades / Day"><input type="number" value={form.max_trades_per_day} onChange={(e) => set('max_trades_per_day', Number(e.target.value))} className="input-field" /></Field>
@@ -154,7 +173,8 @@ export default function Settings() {
       <SectionCard title="Live Execution Safety">
         <p className="text-xs text-muted-foreground leading-relaxed">
           When OANDA is connected and Paper Trading is off, the auto-trade engine routes qualifying orders to OANDA as live market orders with stop-loss and take-profit attached.
-          All pre-trade guards still apply. Paper trading remains the default — never trade live until you have verified behavior on the practice environment.
+          Small bite is capped at 0.25%, Standard uses your Risk per Trade setting, and Big bite uses your Maximum Risk setting. All pre-trade guards still apply.
+          Paper trading and review-before-execution remain the defaults — verify behavior on the practice environment before using live execution.
         </p>
       </SectionCard>
     </div>

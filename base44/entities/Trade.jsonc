@@ -24,6 +24,13 @@
     "risk": {
       "type": "number"
     },
+    "risk_percent": {
+      "type": "number"
+    },
+    "size_profile": {
+      "type": "string",
+      "enum": ["small", "standard", "big"]
+    },
     "risk_reward": {
       "type": "number"
     },

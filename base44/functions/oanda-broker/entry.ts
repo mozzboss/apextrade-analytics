@@ -8,7 +8,17 @@ const OANDA_TO_SYMBOL = Object.fromEntries(Object.entries(SYMBOL_TO_OANDA).map((
 const QUOTE: Record<string, string> = { XAUUSD: "USD", EURUSD: "USD", GBPUSD: "USD", USDJPY: "JPY", AUDUSD: "USD", USDCAD: "CAD", NZDUSD: "USD", USDCHF: "CHF" };
 const BASE: Record<string, string> = { practice: "https://api-fxpractice.oanda.com", live: "https://api-fxtrade.oanda.com" };
 
-type Settings = { oanda_api_token?: string; oanda_account_id?: string; oanda_environment?: string };
+type Settings = {
+  oanda_api_token?: string;
+  oanda_account_id?: string;
+  oanda_environment?: string;
+  account_balance?: number;
+  max_risk?: number;
+  min_risk_reward?: number;
+  kill_switch?: boolean;
+  max_trades_per_day?: number;
+  daily_loss_limit?: number;
+};
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 async function getSettings(base44: any): Promise<Settings> {
@@ -72,13 +82,33 @@ async function placeOrder(base44: any, settings: Settings, order: any, userId: s
   if (!market || !["BUY", "SELL"].includes(direction)) throw new Error("A valid market and direction are required");
   const entry = Number(order.entry); const stopLoss = Number(order.stop_loss); const takeProfit = Number(order.take_profit); const risk = Number(order.risk) || 0;
   const stopDistance = Math.abs(entry - stopLoss);
-  if (!Number.isFinite(entry) || !Number.isFinite(stopLoss) || !stopDistance || !risk) throw new Error("Cannot size position: entry, stop loss, and risk are required");
+  if (settings.kill_switch) throw new Error("Kill switch is active");
+  if (![entry, stopLoss, takeProfit].every(Number.isFinite) || entry <= 0 || stopLoss <= 0 || takeProfit <= 0 || !stopDistance || !risk) {
+    throw new Error("Entry, stop-loss, take-profit, and risk are required");
+  }
+  if ((direction === "BUY" && stopLoss >= entry) || (direction === "SELL" && stopLoss <= entry)) throw new Error("Stop-loss is on the wrong side of entry");
+  if ((direction === "BUY" && takeProfit <= entry) || (direction === "SELL" && takeProfit >= entry)) throw new Error("Take-profit is on the wrong side of entry");
+  const riskReward = Math.abs(takeProfit - entry) / stopDistance;
+  const minRiskReward = Number(settings.min_risk_reward ?? 2);
+  if (!Number.isFinite(riskReward) || riskReward < minRiskReward) throw new Error(`Risk/reward ${riskReward.toFixed(2)} is below the minimum ${minRiskReward}`);
+  const balance = Number(settings.account_balance ?? 10000);
+  const maxRiskPercent = Number(settings.max_risk ?? 1);
+  const maxRiskAmount = balance * maxRiskPercent / 100;
+  if (risk > maxRiskAmount + 0.01) throw new Error(`Risk $${risk.toFixed(2)} exceeds the server limit of $${maxRiskAmount.toFixed(2)}`);
+  const trades = await base44.entities.Trade.list("-created_date", 200);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayTrades = (trades || []).filter((trade: any) => (trade.date || String(trade.created_date || "").slice(0, 10)) === today);
+  const maxTrades = Number(settings.max_trades_per_day ?? 5);
+  if (todayTrades.length >= maxTrades) throw new Error(`Maximum trades per day reached (${todayTrades.length}/${maxTrades})`);
+  const todayPnl = todayTrades.reduce((sum: number, trade: any) => sum + (Number(trade.profit_loss) || 0), 0);
+  const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit ?? 0));
+  if (dailyLossLimit > 0 && todayPnl <= -dailyLossLimit) throw new Error(`Daily loss limit reached ($${todayPnl.toFixed(2)})`);
   let units = risk / stopDistance;
   if ((QUOTE[market] || "USD") !== "USD") units *= entry;
   units = Math.max(1, Math.round(units)); if (direction === "SELL") units = -units;
   const data = await request(settings, "/v3/accounts/{account}/orders", { method: "POST", body: JSON.stringify({ order: { type: "MARKET", instrument: instrument(market), units: String(units), ...(Number.isFinite(stopLoss) ? { stopLossOnFill: { price: String(stopLoss) } } : {}), ...(Number.isFinite(takeProfit) ? { takeProfitOnFill: { price: String(takeProfit) } } : {}) } }) });
   const fill = data?.orderFillTransaction; const brokerOrderId = fill?.orderID || data?.orderCreateTransaction?.id; const brokerTradeId = fill?.tradeOpened?.tradeID;
-  const trade = await base44.entities.Trade.create({ market, direction, entry: fill?.price ? Number(fill.price) : entry, stop_loss: stopLoss, take_profit: takeProfit, risk, risk_reward: order.risk_reward, setup_quality: order.setup_quality, reason: `[OANDA ${brokerOrderId || ""}] ${order.reason || ""}`.trim(), result: "open", profit_loss: 0, date: new Date().toISOString().slice(0, 10), session: order.session, status: "open", strategy: order.strategy, timeframe: order.timeframe, market_condition: order.market_condition, entry_conditions: order.entry_conditions, predicted_probability: order.predicted_probability, expected_value: order.expected_value, prediction_outcome: order.predicted_probability != null ? "pending" : undefined, broker_provider: "oanda", broker_order_id: brokerOrderId, broker_trade_id: brokerTradeId, execution_mode: "live", broker_user_id: userId });
+  const trade = await base44.entities.Trade.create({ market, direction, entry: fill?.price ? Number(fill.price) : entry, stop_loss: stopLoss, take_profit: takeProfit, risk, risk_percent: order.risk_percent, size_profile: order.size_profile, risk_reward: riskReward, setup_quality: order.setup_quality, reason: `[OANDA ${brokerOrderId || ""}] ${order.reason || ""}`.trim(), result: "open", profit_loss: 0, date: new Date().toISOString().slice(0, 10), session: order.session, status: "open", strategy: order.strategy, timeframe: order.timeframe, market_condition: order.market_condition, entry_conditions: order.entry_conditions, predicted_probability: order.predicted_probability, expected_value: order.expected_value, prediction_outcome: order.predicted_probability != null ? "pending" : undefined, broker_provider: "oanda", broker_order_id: brokerOrderId, broker_trade_id: brokerTradeId, execution_mode: "live", broker_user_id: userId });
   return { ok: true, provider: "oanda", mode: "live", orderId: brokerOrderId, tradeId: brokerTradeId || null, journalTradeId: trade?.id, units, fillPrice: fill?.price ? Number(fill.price) : null, pnl: fill?.pl ? Number(fill.pl) : 0 };
 }
 

@@ -11,6 +11,21 @@ export const DEFAULTS = {
   newsBlackoutMinutes: 30,
 };
 
+export const AUTO_SIZE_LABELS = {
+  small: 'Small bite',
+  standard: 'Standard bite',
+  big: 'Big bite',
+};
+
+export function getAutoRiskPercent(settings = {}) {
+  const maxRisk = Math.max(0, Number(settings.max_risk ?? DEFAULTS.maxRisk));
+  const standard = Math.max(0, Number(settings.risk_per_trade ?? DEFAULTS.riskPerTrade));
+  const profile = settings.auto_size_profile || 'small';
+  if (profile === 'big') return Math.min(maxRisk, Math.max(standard, maxRisk));
+  if (profile === 'standard') return Math.min(maxRisk, standard);
+  return Math.min(maxRisk, standard, 0.25);
+}
+
 export const RiskEngine = {
   assess(riskLevel) {
     const r = String(riskLevel || '').toLowerCase();

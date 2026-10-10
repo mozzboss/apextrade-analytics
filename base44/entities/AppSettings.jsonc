@@ -30,6 +30,19 @@
       "type": "boolean",
       "default": false
     },
+    "auto_require_confirmation": {
+      "type": "boolean",
+      "default": true
+    },
+    "auto_size_profile": {
+      "type": "string",
+      "enum": [
+        "small",
+        "standard",
+        "big"
+      ],
+      "default": "small"
+    },
     "max_trades_per_day": {
       "type": "number",
       "default": 5

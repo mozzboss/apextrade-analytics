@@ -18,6 +18,8 @@ const paperProvider = {
       stop_loss: order.stop_loss,
       take_profit: order.take_profit,
       risk: order.risk,
+      risk_percent: order.risk_percent,
+      size_profile: order.size_profile,
       risk_reward: order.risk_reward,
       setup_quality: order.setup_quality,
       reason: order.reason,
@@ -33,6 +35,8 @@ const paperProvider = {
       predicted_probability: order.predicted_probability,
       expected_value: order.expected_value,
       prediction_outcome: order.predicted_probability != null ? 'pending' : undefined,
+      broker_provider: 'paper',
+      execution_mode: 'paper',
     });
     return { ok: true, provider: 'paper', mode: 'paper', tradeId: trade.id };
   },

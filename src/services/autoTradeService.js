@@ -4,6 +4,7 @@ import { evaluateTrade } from './tradeGuards';
 import { computeSignalScore, isBestSetup, gradeFromScore } from './signalEngine';
 import { BrokerService } from './brokerService';
 import { OandaService } from './oandaService';
+import { getAutoRiskPercent } from './riskEngine';
 
 const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD', 'USDCHF'];
 
@@ -37,10 +38,13 @@ export const AutoTradeService = {
     }
 
     const autoMode = !!settings.auto_mode;
+    const reviewRequired = settings.auto_require_confirmation !== false;
     if (!autoMode) {
       add('guard', 'Auto mode is OFF — scan will run but no orders will be placed. Enable in Settings.', 'warn');
     } else {
-      add('init', `Auto mode ON — qualifying trades execute automatically${settings.oanda_connected && !settings.paper_mode ? ' via OANDA (live)' : ' (paper)'}.`, 'ok');
+      add('init', reviewRequired
+        ? 'Auto mode ON — qualifying trades will wait for your entry, stop-loss, take-profit, and size review.'
+        : `Auto mode ON — qualifying trades execute automatically${settings.oanda_connected && !settings.paper_mode ? ' via OANDA (live)' : ' (paper)'}.`, 'ok');
     }
 
     let nextHigh = null;
@@ -72,6 +76,7 @@ export const AutoTradeService = {
       if (!setup || !isBestSetup(grade) || setup.direction === 'NONE') continue;
       if (String(setup.status || '').toUpperCase() === 'NO TRADE') continue;
       const score = computeSignalScore(a);
+      const riskPercent = getAutoRiskPercent(settings);
       const order = {
         market: sym,
         direction: setup.direction,
@@ -82,8 +87,9 @@ export const AutoTradeService = {
         setup_quality: grade,
         reason: (setup.reasons || []).join('; '),
         session: a?.snapshot?.session,
-        risk_percent: settings.risk_per_trade ?? 0.5,
-        risk: ((settings.account_balance ?? 10000) * (settings.risk_per_trade ?? 0.5)) / 100,
+        risk_percent: riskPercent,
+        risk: ((settings.account_balance ?? 10000) * riskPercent) / 100,
+        size_profile: settings.auto_size_profile || 'small',
       };
       if (settings.oanda_connected) {
         try {
@@ -91,6 +97,11 @@ export const AutoTradeService = {
           if (px?.mid) { order.entry = px.mid; add('scan', `${sym}: live OANDA price ${px.mid} used for entry.`, 'ok'); }
         } catch (e) { add('scan', `${sym}: OANDA price unavailable — ${e.message}`, 'warn'); }
       }
+      const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
+      const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
+      order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
+      order.estimated_loss = order.risk;
+      order.estimated_profit = order.risk * order.risk_reward;
       const guards = evaluateTrade({
         trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total,
       });
@@ -102,7 +113,9 @@ export const AutoTradeService = {
     const executed = [];
     for (const c of candidates) {
       if (c.guards.allowed) {
-        if (autoMode) {
+        if (autoMode && reviewRequired) {
+          add('review', `${c.symbol}: ready for review — max loss $${c.order.estimated_loss.toFixed(2)}, target profit $${c.order.estimated_profit.toFixed(2)}, SL ${c.order.stop_loss}, TP ${c.order.take_profit}.`, 'candidate');
+        } else if (autoMode) {
           add('execute', `${c.symbol}: guards passed — placing ${settings.oanda_connected && !settings.paper_mode ? 'live OANDA' : 'paper'} order…`, 'running');
           try {
             const res = await BrokerService.placeOrder(c.order);
@@ -120,6 +133,53 @@ export const AutoTradeService = {
     }
 
     add('done', `Scan complete — ${candidates.length} candidate(s), ${executed.length} executed.`, 'done');
-    return { executed, candidates, analyses, blocked: false, autoMode, log };
+    return { executed, candidates, analyses, blocked: false, autoMode, reviewRequired, log };
+  },
+
+  async executeCandidate(candidate) {
+    const settings = (await SettingsService.get().catch(() => null)) || {};
+    if (!settings.auto_mode) throw new Error('Auto mode is OFF');
+    if (settings.kill_switch) throw new Error('Kill switch is active');
+
+    const trades = await TradingJournalService.list().catch(() => []);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTrades = (trades || []).filter((t) => (t.date || (t.created_date || '').slice(0, 10)) === today);
+    const todayPnL = todayTrades.reduce((sum, trade) => sum + (Number(trade.profit_loss) || 0), 0);
+    const riskPercent = getAutoRiskPercent(settings);
+    const order = {
+      ...candidate.order,
+      risk_percent: riskPercent,
+      risk: ((settings.account_balance ?? 10000) * riskPercent) / 100,
+      size_profile: settings.auto_size_profile || 'small',
+    };
+
+    if (settings.oanda_connected) {
+      const price = await OandaService.getPricing(candidate.symbol);
+      if (price?.mid) order.entry = price.mid;
+    }
+    const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
+    const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
+    order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
+    order.estimated_loss = order.risk;
+    order.estimated_profit = order.risk * order.risk_reward;
+
+    let nextHigh = null;
+    try {
+      const calendar = await EconomicCalendarService.getUpcoming();
+      const event = (calendar?.events || []).find((item) => item.impact === 'HIGH');
+      if (event) nextHigh = new Date(`${event.date} ${event.time || ''}`).getTime() || null;
+    } catch {}
+
+    const guards = evaluateTrade({
+      trade: order,
+      settings,
+      todayTrades,
+      todayPnL,
+      nextHighEventTime: nextHigh,
+      qualityScore: candidate.score,
+    });
+    if (!guards.allowed) throw new Error(guards.reasons.join('; '));
+    const result = await BrokerService.placeOrder(order);
+    return { ...candidate, order, guards, result };
   },
 };

@@ -36,11 +36,26 @@ export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0,
     reasons.push(`Risk ${riskPct}% exceeds max ${Number(s.max_risk)}%`);
   }
 
-  // 6. Minimum risk/reward
-  const rr = Number(trade?.risk_reward);
-  if (!Number.isNaN(rr) && s.min_risk_reward != null && rr < Number(s.min_risk_reward)) {
-    reasons.push(`R/R 1:${rr} below minimum 1:${Number(s.min_risk_reward)}`);
+  // 6. Entry, stop-loss, take-profit, and minimum risk/reward
+  const entry = Number(trade?.entry);
+  const stopLoss = Number(trade?.stop_loss);
+  const takeProfit = Number(trade?.take_profit);
+  const hasLevels = [entry, stopLoss, takeProfit].every(Number.isFinite);
+  if (!hasLevels || entry <= 0 || stopLoss <= 0 || takeProfit <= 0) {
+    reasons.push('Valid entry, stop-loss, and take-profit are required');
+  } else {
+    const buy = trade?.direction === 'BUY';
+    const sell = trade?.direction === 'SELL';
+    if ((buy && stopLoss >= entry) || (sell && stopLoss <= entry)) reasons.push('Stop-loss is on the wrong side of entry');
+    if ((buy && takeProfit <= entry) || (sell && takeProfit >= entry)) reasons.push('Take-profit is on the wrong side of entry');
+    const calculatedRR = Math.abs(takeProfit - entry) / Math.abs(entry - stopLoss);
+    if (!Number.isFinite(calculatedRR) || calculatedRR < Number(s.min_risk_reward ?? 0)) {
+      reasons.push(`R/R 1:${Number.isFinite(calculatedRR) ? calculatedRR.toFixed(2) : '0'} below minimum 1:${Number(s.min_risk_reward ?? 0)}`);
+    }
   }
+
+  const riskAmount = Number(trade?.risk);
+  if (!Number.isFinite(riskAmount) || riskAmount <= 0) reasons.push('Trade risk amount must be greater than $0');
 
   // 7. Setup quality gate
   if (qualityScore != null) {

@@ -5,7 +5,6 @@ import { PositionSizeService } from '@/services/riskEngine';
 import TradeJournalTable from '@/components/TradeJournalTable';
 import LiveTradeCalc from '@/components/LiveTradeCalc';
 import SectionCard from '@/components/SectionCard';
-import { cn } from '@/lib/utils';
 
 export default function Journal() {
   const [trades, setTrades] = useState([]);

@@ -106,6 +106,23 @@
     },
     "parent_trade_id": {
       "type": "string"
+    },
+    "broker_provider": {
+      "type": "string",
+      "enum": ["paper", "oanda"]
+    },
+    "broker_order_id": {
+      "type": "string"
+    },
+    "broker_trade_id": {
+      "type": "string"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": ["paper", "live"]
+    },
+    "broker_user_id": {
+      "type": "string"
     }
   },
   "required": [

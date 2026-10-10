@@ -28,11 +28,16 @@ export const SetupService = {
 export const SettingsService = {
   async get() {
     const items = await base44.entities.AppSettings.list('-created_date', 5);
-    return items?.[0] || null;
+    const settings = items?.[0] || null;
+    if (!settings) return null;
+    const { oanda_api_token: _token, ...safeSettings } = settings;
+    return { ...safeSettings, oanda_configured: Boolean(_token) };
   },
   async save(data) {
     const existing = await SettingsService.get();
-    if (existing) return base44.entities.AppSettings.update(existing.id, data);
-    return base44.entities.AppSettings.create(data);
+    const payload = { ...data };
+    if (!payload.oanda_api_token) delete payload.oanda_api_token;
+    if (existing) return base44.entities.AppSettings.update(existing.id, payload);
+    return base44.entities.AppSettings.create(payload);
   },
 };

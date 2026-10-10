@@ -1,11 +1,12 @@
 import { base44 } from '@/api/base44Client';
+import { OandaService } from './oandaService';
 
 // ---------------------------------------------------------------------------
-// Modular data services. All live data is sourced through the AI integration
-// with web-search enabled (gemini_3_flash). Results are cached briefly so the
-// UI does not spam the model on every render. Every response carries a
-// `data_available` flag — when false the UI shows "Live market data is
-// unavailable" and never fabricates prices.
+// Modular data services. Analysis, macro, calendar, and news use the AI
+// integration with web-search enabled. Broker quotes and chart candles use
+// the authenticated OANDA backend function. Results are cached briefly so
+// the UI does not spam providers on every render. Every response carries a
+// `data_available` flag when a provider cannot supply reliable data.
 // ---------------------------------------------------------------------------
 
 const _cache = new Map();
@@ -235,27 +236,6 @@ const fullSchema = {
   },
 };
 
-const chartSchema = {
-  type: 'object',
-  properties: {
-    data_available: { type: 'boolean' },
-    timeframe: { type: 'string' },
-    candles: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          time: { type: 'string' },
-          open: { type: 'number' },
-          high: { type: 'number' },
-          low: { type: 'number' },
-          close: { type: 'number' },
-        },
-      },
-    },
-  },
-};
-
 const calendarSchema = {
   type: 'object',
   properties: {
@@ -347,9 +327,14 @@ Never fabricate prices. If no live price was provided and you cannot find reliab
     const key = `chart_${symbol}_${timeframe}`;
     const c = cached(key);
     if (c) return c;
-    const meta = SYMBOL_META[symbol];
-    const prompt = `You are a market data analyst with live web access. Provide the most recent ~45 OHLC candle bars for ${meta.display} on the ${timeframe} timeframe as of right now, ${new Date().toUTCString()}. Each candle: time (short label like "14:00" or date), open, high, low, close. Use real recent price action from the web. If reliable data is unavailable, return data_available=false and an empty candles array. Do not fabricate. Return JSON.`;
-    const res = await invoke(prompt, chartSchema);
+    const granularity = { '5M': 'M5', '15M': 'M15', '30M': 'M30', '1H': 'H1', '4H': 'H4', D: 'D', W: 'W' }[timeframe] || 'H1';
+    let res;
+    try {
+      const candles = await OandaService.getCandles(symbol, granularity, 100);
+      res = { data_available: candles.length > 0, data_note: 'Authoritative OANDA broker candles', candles };
+    } catch (error) {
+      res = { data_available: false, data_note: error?.message || 'Authoritative broker candles unavailable', candles: [] };
+    }
     setCache(key, res);
     return res;
   },

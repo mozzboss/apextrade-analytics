@@ -108,7 +108,7 @@ export default function OrderPreviewModal({ open, analysis, symbol, onClosed, on
     ? evaluateSignalQuality({ analysis, setup, settings: ctx.settings, ctx: { risk_percent: riskPct, highImpactNewsSoon: ctx.highImpactSoon } })
     : { decision: 'WAIT', hardFails: [], cautions: [], confirmations: [] };
 
-  const brokerMode = ctx?.settings?.oanda_connected && ctx?.settings?.oanda_api_token && !ctx?.settings?.paper_mode
+  const brokerMode = ctx?.settings?.oanda_connected && !ctx?.settings?.paper_mode
     ? `OANDA ${ctx?.settings?.oanda_environment === 'live' ? 'Live' : 'Practice'}`
     : 'Paper';
 

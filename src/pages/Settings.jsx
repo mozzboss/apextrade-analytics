@@ -19,7 +19,9 @@ export default function Settings() {
   const [oandaStatus, setOandaStatus] = useState(null);
 
   useEffect(() => {
-    SettingsService.get().then(s => { if (s) setForm(s); }).catch(() => {}).finally(() => setLoading(false));
+    SettingsService.get().then(s => {
+      if (s) setForm(current => ({ ...current, ...s, oanda_api_token: '' }));
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   async function save() {
@@ -109,7 +111,7 @@ export default function Settings() {
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Connect your OANDA account to route auto-trade executions live. Use <span className="text-foreground font-medium">Practice</span> first to verify, then switch to Live.
-              Your API token is stored in your app settings (owner-only access).
+              Your API token is stored in owner-scoped app settings and is used only by the server-side broker function.
             </p>
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Environment">
@@ -121,7 +123,7 @@ export default function Settings() {
               <Field label="Account ID" hint="OANDA v20 account id (e.g. 101-001-...)">
                 <input value={form.oanda_account_id} onChange={(e) => set('oanda_account_id', e.target.value)} className="input-field" />
               </Field>
-              <Field label="API Token" hint="OANDA → My Services → API Token">
+              <Field label="API Token" hint="Enter a new token; leave blank to keep the saved token">
                 <input type="password" value={form.oanda_api_token} onChange={(e) => set('oanda_api_token', e.target.value)} className="input-field" autoComplete="off" />
               </Field>
               <Field label="Connection">
@@ -143,7 +145,7 @@ export default function Settings() {
               </div>
             )}
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Note: OANDA must allow browser access (CORS) for your account. If the test fails with a network/CORS error, a server-side proxy (Builder+ backend function) is required to keep the token off the client.
+              Broker requests and order execution run through the authenticated Base44 backend. The token is never returned to the frontend after it is saved.
             </p>
           </div>
         )}

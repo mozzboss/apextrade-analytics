@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
-import { cn } from '@/lib/utils';
+import { ComposedChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 
 function CandleShape(props) {
   const { x, y, width, height, low, high, open, close } = props;

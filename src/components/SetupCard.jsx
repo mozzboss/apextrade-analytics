@@ -1,6 +1,5 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import SignalBadge from './SignalBadge';
 import { gradeTone } from '@/services/signalEngine';
 import { CheckCircle2, XCircle, Target } from 'lucide-react';
 

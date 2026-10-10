@@ -19,6 +19,7 @@ type Settings = {
   max_trades_per_day?: number;
   daily_loss_limit?: number;
 };
+const MAX_UNITS = 500000;
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 async function getSettings(base44: any): Promise<Settings> {
@@ -96,6 +97,7 @@ async function placeOrder(base44: any, settings: Settings, order: any, userId: s
   const maxRiskAmount = balance * maxRiskPercent / 100;
   if (risk > maxRiskAmount + 0.01) throw new Error(`Risk $${risk.toFixed(2)} exceeds the server limit of $${maxRiskAmount.toFixed(2)}`);
   const trades = await base44.entities.Trade.list("-created_date", 200);
+  if ((trades || []).some((trade: any) => trade.market === market && trade.status === "open")) throw new Error(`A ${market} position is already open`);
   const today = new Date().toISOString().slice(0, 10);
   const todayTrades = (trades || []).filter((trade: any) => (trade.date || String(trade.created_date || "").slice(0, 10)) === today);
   const maxTrades = Number(settings.max_trades_per_day ?? 5);
@@ -105,11 +107,19 @@ async function placeOrder(base44: any, settings: Settings, order: any, userId: s
   if (dailyLossLimit > 0 && todayPnl <= -dailyLossLimit) throw new Error(`Daily loss limit reached ($${todayPnl.toFixed(2)})`);
   let units = risk / stopDistance;
   if ((QUOTE[market] || "USD") !== "USD") units *= entry;
-  units = Math.max(1, Math.round(units)); if (direction === "SELL") units = -units;
+  units = Math.max(1, Math.round(units));
+  if (units > MAX_UNITS) throw new Error(`Position size ${units} exceeds the ${MAX_UNITS} unit cap`);
+  if (direction === "SELL") units = -units;
+  const mode = settings.oanda_environment === "live" ? "live" : "practice";
   const data = await request(settings, "/v3/accounts/{account}/orders", { method: "POST", body: JSON.stringify({ order: { type: "MARKET", instrument: instrument(market), units: String(units), ...(Number.isFinite(stopLoss) ? { stopLossOnFill: { price: String(stopLoss) } } : {}), ...(Number.isFinite(takeProfit) ? { takeProfitOnFill: { price: String(takeProfit) } } : {}) } }) });
   const fill = data?.orderFillTransaction; const brokerOrderId = fill?.orderID || data?.orderCreateTransaction?.id; const brokerTradeId = fill?.tradeOpened?.tradeID;
-  const trade = await base44.entities.Trade.create({ market, direction, entry: fill?.price ? Number(fill.price) : entry, stop_loss: stopLoss, take_profit: takeProfit, risk, risk_percent: order.risk_percent, size_profile: order.size_profile, risk_reward: riskReward, setup_quality: order.setup_quality, reason: `[OANDA ${brokerOrderId || ""}] ${order.reason || ""}`.trim(), result: "open", profit_loss: 0, date: new Date().toISOString().slice(0, 10), session: order.session, status: "open", strategy: order.strategy, timeframe: order.timeframe, market_condition: order.market_condition, entry_conditions: order.entry_conditions, predicted_probability: order.predicted_probability, expected_value: order.expected_value, prediction_outcome: order.predicted_probability != null ? "pending" : undefined, broker_provider: "oanda", broker_order_id: brokerOrderId, broker_trade_id: brokerTradeId, execution_mode: "live", broker_user_id: userId });
-  return { ok: true, provider: "oanda", mode: "live", orderId: brokerOrderId, tradeId: brokerTradeId || null, journalTradeId: trade?.id, units, fillPrice: fill?.price ? Number(fill.price) : null, pnl: fill?.pl ? Number(fill.pl) : 0 };
+  // The broker order is already live: a journal failure must not look like an order failure (a retry would double the position).
+  let journalTradeId: string | undefined; let journalWarning: string | undefined;
+  try {
+    const trade = await base44.entities.Trade.create({ market, direction, entry: fill?.price ? Number(fill.price) : entry, stop_loss: stopLoss, take_profit: takeProfit, risk, risk_percent: order.risk_percent, size_profile: order.size_profile, risk_reward: riskReward, setup_quality: order.setup_quality, reason: `[OANDA ${brokerOrderId || ""}] ${order.reason || ""}`.trim(), result: "open", profit_loss: 0, date: new Date().toISOString().slice(0, 10), session: order.session, status: "open", strategy: order.strategy, timeframe: order.timeframe, market_condition: order.market_condition, entry_conditions: order.entry_conditions, predicted_probability: order.predicted_probability, expected_value: order.expected_value, prediction_outcome: order.predicted_probability != null ? "pending" : undefined, broker_provider: "oanda", broker_order_id: brokerOrderId, broker_trade_id: brokerTradeId, execution_mode: mode, broker_user_id: userId });
+    journalTradeId = trade?.id;
+  } catch (error) { journalWarning = `Order placed at OANDA (trade ${brokerTradeId || brokerOrderId}) but journaling failed: ${message(error)}`; }
+  return { ok: true, provider: "oanda", mode, orderId: brokerOrderId, tradeId: brokerTradeId || null, journalTradeId, journalWarning, units, fillPrice: fill?.price ? Number(fill.price) : null, pnl: fill?.pl ? Number(fill.pl) : 0 };
 }
 
 export default async function (req: Request): Promise<Response> {

@@ -100,6 +100,7 @@ export default function OrderPreviewModal({ open, analysis, symbol, onClosed, on
         todayTrades: ctx.todayTrades,
         todayPnL: ctx.todayPnL,
         nextHighEventTime: ctx.nextHighEventTime,
+        openTrades: ctx.trades.filter((t) => t.status === 'open'),
         qualityScore: analysis ? computeSignalScore(analysis)?.total : null,
       })
     : { allowed: false, reasons: ['Loading risk checks…'] };

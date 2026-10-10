@@ -103,7 +103,7 @@ export const AutoTradeService = {
       order.estimated_loss = order.risk;
       order.estimated_profit = order.risk * order.risk_reward;
       const guards = evaluateTrade({
-        trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total,
+        trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total, openTrades: (trades || []).filter((t) => t.status === 'open'),
       });
       candidates.push({ symbol: sym, order, guards, grade, score: score?.total });
     }
@@ -112,6 +112,15 @@ export const AutoTradeService = {
 
     const executed = [];
     for (const c of candidates) {
+      // Re-run guards so earlier fills in this scan count toward limits and open positions
+      if (c.guards.allowed && executed.length) {
+        c.guards = evaluateTrade({
+          trade: c.order, settings,
+          todayTrades: todayTrades.concat(executed.map((e) => ({ market: e.symbol, status: 'open' }))),
+          todayPnL, nextHighEventTime: nextHigh, qualityScore: c.score,
+          openTrades: (trades || []).filter((t) => t.status === 'open').concat(executed.map((e) => ({ market: e.symbol, status: 'open' }))),
+        });
+      }
       if (c.guards.allowed) {
         if (autoMode && reviewRequired) {
           add('review', `${c.symbol}: ready for review — max loss $${c.order.estimated_loss.toFixed(2)}, target profit $${c.order.estimated_profit.toFixed(2)}, SL ${c.order.stop_loss}, TP ${c.order.take_profit}.`, 'candidate');
@@ -120,7 +129,7 @@ export const AutoTradeService = {
           try {
             const res = await BrokerService.placeOrder(c.order);
             executed.push({ ...c, result: res });
-            add('execute', `${c.symbol}: ✅ ${c.order.direction} placed (${c.result?.mode === 'live' ? 'live OANDA' : 'paper'}). Entry ${c.order.entry}, R/R 1:${c.order.risk_reward?.toFixed(1)}`, 'success');
+            add('execute', `${c.symbol}: ✅ ${c.order.direction} placed (${res?.provider === 'oanda' ? `OANDA ${res.mode}` : 'paper'}). Entry ${c.order.entry}, R/R 1:${c.order.risk_reward?.toFixed(1)}`, 'success');
           } catch (e) {
             add('execute', `${c.symbol}: execution failed — ${e.message}`, 'error');
           }
@@ -177,6 +186,7 @@ export const AutoTradeService = {
       todayPnL,
       nextHighEventTime: nextHigh,
       qualityScore: candidate.score,
+      openTrades: (trades || []).filter((t) => t.status === 'open'),
     });
     if (!guards.allowed) throw new Error(guards.reasons.join('; '));
     const result = await BrokerService.placeOrder(order);

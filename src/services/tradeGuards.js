@@ -6,7 +6,7 @@ import { gradeFromScore } from '@/services/signalEngine';
 // automation safe: the same guards run whether a human or a bot triggers it.
 // ---------------------------------------------------------------------------
 
-export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0, nextHighEventTime = null, qualityScore = null }) {
+export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0, nextHighEventTime = null, qualityScore = null, openTrades = [] }) {
   const reasons = [];
   const s = settings || {};
 
@@ -30,32 +30,19 @@ export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0,
     if (mins > 0 && mins < blackout) reasons.push(`High-impact news in ${Math.round(mins)} min (blackout ${blackout}m)`);
   }
 
-  // 5. Risk-per-trade cap
-  const riskPct = Number(trade?.risk_percent);
-  if (!Number.isNaN(riskPct) && s.max_risk != null && riskPct > Number(s.max_risk)) {
-    reasons.push(`Risk ${riskPct}% exceeds max ${Number(s.max_risk)}%`);
+  // 5. Risk-per-trade cap (fails closed: missing risk data blocks the trade)
+  const riskPct = trade?.risk_percent == null ? NaN : Number(trade.risk_percent);
+  if (s.max_risk != null) {
+    if (!Number.isFinite(riskPct)) reasons.push('Risk percent is missing — cannot verify risk cap');
+    else if (riskPct > Number(s.max_risk)) reasons.push(`Risk ${riskPct}% exceeds max ${Number(s.max_risk)}%`);
   }
 
-  // 6. Entry, stop-loss, take-profit, and minimum risk/reward
-  const entry = Number(trade?.entry);
-  const stopLoss = Number(trade?.stop_loss);
-  const takeProfit = Number(trade?.take_profit);
-  const hasLevels = [entry, stopLoss, takeProfit].every(Number.isFinite);
-  if (!hasLevels || entry <= 0 || stopLoss <= 0 || takeProfit <= 0) {
-    reasons.push('Valid entry, stop-loss, and take-profit are required');
-  } else {
-    const buy = trade?.direction === 'BUY';
-    const sell = trade?.direction === 'SELL';
-    if ((buy && stopLoss >= entry) || (sell && stopLoss <= entry)) reasons.push('Stop-loss is on the wrong side of entry');
-    if ((buy && takeProfit <= entry) || (sell && takeProfit >= entry)) reasons.push('Take-profit is on the wrong side of entry');
-    const calculatedRR = Math.abs(takeProfit - entry) / Math.abs(entry - stopLoss);
-    if (!Number.isFinite(calculatedRR) || calculatedRR < Number(s.min_risk_reward ?? 0)) {
-      reasons.push(`R/R 1:${Number.isFinite(calculatedRR) ? calculatedRR.toFixed(2) : '0'} below minimum 1:${Number(s.min_risk_reward ?? 0)}`);
-    }
+  // 6. Minimum risk/reward (fails closed)
+  const rr = trade?.risk_reward == null ? NaN : Number(trade.risk_reward);
+  if (s.min_risk_reward != null) {
+    if (!Number.isFinite(rr)) reasons.push('Risk/reward is missing — cannot verify minimum R/R');
+    else if (rr < Number(s.min_risk_reward)) reasons.push(`R/R 1:${rr.toFixed(2)} below minimum 1:${Number(s.min_risk_reward)}`);
   }
-
-  const riskAmount = Number(trade?.risk);
-  if (!Number.isFinite(riskAmount) || riskAmount <= 0) reasons.push('Trade risk amount must be greater than $0');
 
   // 7. Setup quality gate
   if (qualityScore != null) {
@@ -66,6 +53,17 @@ export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0,
   // 8. Direction sanity
   if (!trade?.direction || (trade.direction !== 'BUY' && trade.direction !== 'SELL')) {
     reasons.push('No valid trade direction');
+  } else {
+    // 9. Stop / target must sit on the correct side of entry
+    const entry = Number(trade.entry); const sl = Number(trade.stop_loss); const tp = Number(trade.take_profit);
+    const sign = trade.direction === 'BUY' ? 1 : -1;
+    if (!Number.isFinite(entry) || !Number.isFinite(sl) || (entry - sl) * sign <= 0) reasons.push('Stop loss is missing or on the wrong side of entry');
+    if (Number.isFinite(tp) && (tp - entry) * sign <= 0) reasons.push('Take profit is on the wrong side of entry');
+  }
+
+  // 10. One open position per market
+  if (trade?.market && openTrades.some((t) => t.market === trade.market && (t.status || t.result) === 'open')) {
+    reasons.push(`A ${trade.market} position is already open`);
   }
 
   return { allowed: reasons.length === 0, reasons };

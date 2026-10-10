@@ -126,7 +126,7 @@
     },
     "execution_mode": {
       "type": "string",
-      "enum": ["paper", "live"]
+      "enum": ["paper", "practice", "live"]
     },
     "broker_user_id": {
       "type": "string"

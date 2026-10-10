@@ -1,0 +1,124 @@
+{
+  "type": "object",
+  "name": "BrokerConnection",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "mt5"
+      ]
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "demo",
+        "live"
+      ],
+      "default": "demo"
+    },
+    "label": {
+      "type": "string"
+    },
+    "server": {
+      "type": "string"
+    },
+    "account_id": {
+      "type": "string"
+    },
+    "account_name": {
+      "type": "string"
+    },
+    "account_currency": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "disconnected",
+        "error"
+      ],
+      "default": "connected"
+    },
+    "encrypted_credentials": {
+      "type": "string"
+    },
+    "live_authorized": {
+      "type": "boolean",
+      "default": false
+    },
+    "emergency_stop": {
+      "type": "boolean",
+      "default": false
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "last_synced_at": {
+      "type": "string"
+    },
+    "risk_per_trade": {
+      "type": "number"
+    },
+    "max_daily_loss": {
+      "type": "number"
+    },
+    "max_exposure": {
+      "type": "number"
+    },
+    "max_open_positions": {
+      "type": "number"
+    },
+    "default_sl_pips": {
+      "type": "number"
+    },
+    "default_tp_pips": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "provider",
+    "environment"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

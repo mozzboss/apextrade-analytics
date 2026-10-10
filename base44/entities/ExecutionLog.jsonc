@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "name": "ExecutionLog",
+  "properties": {
+    "connection_id": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ],
+      "default": "success"
+    },
+    "request_summary": {
+      "type": "string"
+    },
+    "response_summary": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -65,7 +65,8 @@ export const AutoTradeService = {
       const dir = a?.setup?.direction || 'NONE';
       const status = a?.setup?.status || '—';
       const good = a && isBestSetup(grade) && dir !== 'NONE' && String(status).toUpperCase() !== 'NO TRADE';
-      add('scan', `${sym}: grade ${grade || '—'}, ${dir}, ${status}, session ${a?.snapshot?.session || '—'}`, good ? 'candidate' : 'skip');
+      const reviewable = !good && a && grade === 'B' && dir !== 'NONE' && String(status).toUpperCase() !== 'NO TRADE';
+      add('scan', `${sym}: grade ${grade || '—'}, ${dir}, ${status}, session ${a?.snapshot?.session || '—'}`, good ? 'candidate' : reviewable ? 'warn' : 'skip');
     }
 
     const candidates = [];
@@ -73,7 +74,9 @@ export const AutoTradeService = {
       const a = analyses[sym];
       const setup = a?.setup;
       const grade = setup?.quality_grade || gradeFromScore(setup?.quality_score);
-      if (!setup || !isBestSetup(grade) || setup.direction === 'NONE') continue;
+      const bestGrade = isBestSetup(grade);
+      const reviewOnly = grade === 'B';
+      if (!setup || setup.direction === 'NONE' || (!bestGrade && !reviewOnly)) continue;
       if (String(setup.status || '').toUpperCase() === 'NO TRADE') continue;
       const score = computeSignalScore(a);
       const riskPercent = getAutoRiskPercent(settings);
@@ -105,7 +108,7 @@ export const AutoTradeService = {
       const guards = evaluateTrade({
         trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total, openTrades: (trades || []).filter((t) => t.status === 'open'),
       });
-      candidates.push({ symbol: sym, order, guards, grade, score: score?.total });
+      candidates.push({ symbol: sym, order, guards, grade, score: score?.total, reviewOnly: !bestGrade });
     }
 
     add('evaluate', `${candidates.length} candidate(s) found. Running pre-trade guards…`, 'running');
@@ -122,7 +125,9 @@ export const AutoTradeService = {
         });
       }
       if (c.guards.allowed) {
-        if (autoMode && reviewRequired) {
+        if (c.reviewOnly) {
+          add('review', `${c.symbol}: B-grade review-only — manual approval required to execute.`, 'candidate');
+        } else if (autoMode && reviewRequired) {
           add('review', `${c.symbol}: ready for review — max loss $${c.order.estimated_loss.toFixed(2)}, target profit $${c.order.estimated_profit.toFixed(2)}, SL ${c.order.stop_loss}, TP ${c.order.take_profit}.`, 'candidate');
         } else if (autoMode) {
           add('execute', `${c.symbol}: guards passed — placing ${settings.oanda_connected && !settings.paper_mode ? 'live OANDA' : 'paper'} order…`, 'running');

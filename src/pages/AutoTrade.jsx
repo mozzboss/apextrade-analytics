@@ -61,7 +61,7 @@ export default function AutoTrade() {
           <h1 className="text-xl font-display font-semibold flex items-center gap-2">
             <Bot className="w-5 h-5 text-gold" /> Auto-Trade Engine
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Scans markets, evaluates A+/A setups, and executes through your risk guards.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Scans markets, evaluates A+/A setups, and surfaces B-grade confluence setups for manual review.</p>
         </div>
         <button onClick={runScan} disabled={running}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
@@ -114,7 +114,7 @@ export default function AutoTrade() {
           <Rail label="News Blackout" value={`${settings?.news_blackout_minutes ?? 30}m`} />
         </div>
         <p className="text-[11px] text-muted-foreground mt-3">
-          Every candidate passes the same pre-trade guards as manual trades: kill switch, daily loss limit, max trades/day, news blackout, risk cap, min R/R, and A+/A quality grade.
+          Every candidate passes the same pre-trade guards as manual trades: kill switch, daily loss limit, max trades/day, news blackout, risk cap, min R/R, and A+/A quality grade. B-grade setups are surfaced as review-only and never auto-execute.
         </p>
       </SectionCard>
 
@@ -142,8 +142,9 @@ export default function AutoTrade() {
       {/* Results summary */}
       {result && !running && (
         <SectionCard title="Scan Results" icon={CheckCircle2}>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <Summary label="Candidates" value={result.candidates.length} tone="gold" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <Summary label="Candidates" value={result.candidates.filter(c => !c.reviewOnly).length} tone="gold" />
+            <Summary label="Review Only" value={result.candidates.filter(c => c.reviewOnly).length} tone="gold" />
             <Summary label="Executed" value={result.executed.length} tone="bullish" />
             <Summary label="Blocked" value={result.candidates.filter(c => !c.guards.allowed).length} tone="bearish" />
           </div>
@@ -159,12 +160,13 @@ export default function AutoTrade() {
                         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted">{candidate.symbol}</span>
                         <span className={cn('text-xs font-medium', order.direction === 'BUY' ? 'text-bullish' : 'text-bearish')}>{order.direction}</span>
                         <span className="text-xs text-muted-foreground">{AUTO_SIZE_LABELS[order.size_profile] || order.size_profile} · {order.risk_percent.toFixed(2)}%</span>
+                        {candidate.reviewOnly && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warn/15 text-warn border border-warn/30">Review only</span>}
                       </div>
-                      {result.reviewRequired && autoOn && (
+                      {autoOn && (result.reviewRequired || candidate.reviewOnly) && (
                         <button onClick={() => approveCandidate(candidate)} disabled={!candidate.guards.allowed || executed || approving === candidate.symbol}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50">
                           {approving === candidate.symbol ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {executed ? 'Executed' : approving === candidate.symbol ? 'Rechecking…' : 'Approve Trade'}
+                          {executed ? 'Executed' : approving === candidate.symbol ? 'Rechecking…' : candidate.reviewOnly ? 'Review & Approve' : 'Approve Trade'}
                         </button>
                       )}
                     </div>
@@ -198,7 +200,7 @@ export default function AutoTrade() {
               ))}
             </div>
           ) : result.candidates.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-4 text-center">No A+/A setups found this scan. The engine says NO TRADE when quality is insufficient.</div>
+            <div className="text-sm text-muted-foreground py-4 text-center">No actionable setups found this scan. The engine says NO TRADE when quality is insufficient.</div>
           ) : null}
         </SectionCard>
       )}

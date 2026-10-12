@@ -121,13 +121,18 @@ export function computeSignalScore(analysis) {
   const rr = Number(setup?.risk_reward) || 0;
   const rrScore = Math.min(10, Math.round(rr * 2.5));
 
-  // News Risk (5) — elevated if high-impact headlines present
-  let newsRisk = 4;
-  if (news?.some((n) => String(n.impact).toUpperCase() === 'HIGH')) newsRisk = 2;
-  else if (!news || news.length === 0) newsRisk = 3;
+  // Timing & News (5) — session quality (prime windows win more) minus news risk
+  let timing = 3;
+  const sess = String(snap?.session || '').toLowerCase();
+  if (sess.includes('overlap')) timing = 5;
+  else if (sess.includes('london') || sess.includes('new york') || sess.includes('ny')) timing = 4;
+  else if (sess.includes('asian')) timing = 2;
+  else if (sess.includes('closed')) timing = 1;
+  if (news?.some((n) => String(n.impact).toUpperCase() === 'HIGH')) timing = Math.max(0, timing - 2);
+  timing = Math.max(0, Math.min(5, timing));
 
-  const total = marketStructure + htf + liquidity + momentum + macroScore + rrScore + newsRisk;
-  return { marketStructure, htf, liquidity, momentum, macro: macroScore, rr: rrScore, newsRisk, total };
+  const total = marketStructure + htf + liquidity + momentum + macroScore + rrScore + timing;
+  return { marketStructure, htf, liquidity, momentum, macro: macroScore, rr: rrScore, timing, total };
 }
 
 /**
@@ -142,7 +147,7 @@ export function buildQualityBreakdown(setup) {
     momentum: Math.min(15, Math.round((total / 100) * 15)),
     macro: Math.min(15, Math.round((total / 100) * 15)),
     rr: Math.min(10, Math.round((setup?.risk_reward || 0) * 2.5)),
-    newsRisk: Math.max(0, 5 - Math.round((100 - total) / 20)),
+    timing: Math.max(0, 5 - Math.round((100 - total) / 20)),
     total,
   };
 }

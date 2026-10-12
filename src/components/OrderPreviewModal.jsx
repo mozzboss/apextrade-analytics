@@ -195,6 +195,7 @@ export default function OrderPreviewModal({ open, analysis, symbol, onClosed, on
             <div className={cn('rounded-lg border px-3.5 py-3 mt-2', signal.allowed ? 'border-bullish/30 bg-bullish/5' : 'border-warn/30 bg-warn/5')}>
               <div className="flex items-center gap-2 text-xs font-semibold mb-1.5">
                 <Gauge className="w-3.5 h-3.5 text-gold" /> Signal Quality: <span className={signal.decision === 'GO' ? 'text-bullish' : signal.decision === 'WAIT' ? 'text-warn' : 'text-bearish'}>{signal.decision}</span>
+                {signal.confirmations.length > 0 && <span className="ml-auto text-[10px] text-muted-foreground font-normal">{signal.confirmations.length} confluences aligned</span>}
               </div>
               {signal.confirmations.length > 0 && <div className="text-[11px] text-bullish mb-1">✓ {signal.confirmations.join(' · ')}</div>}
               {signal.cautions.length > 0 && <div className="text-[11px] text-warn mb-1">⚠ {signal.cautions.join(' · ')}</div>}

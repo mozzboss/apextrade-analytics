@@ -65,7 +65,7 @@ export const AutoTradeService = {
       const dir = a?.setup?.direction || 'NONE';
       const status = a?.setup?.status || '—';
       const good = a && isBestSetup(grade) && dir !== 'NONE' && String(status).toUpperCase() !== 'NO TRADE';
-      add('scan', `${sym}: grade ${grade || '—'}, ${dir}, ${status}`, good ? 'candidate' : 'skip');
+      add('scan', `${sym}: grade ${grade || '—'}, ${dir}, ${status}, session ${a?.snapshot?.session || '—'}`, good ? 'candidate' : 'skip');
     }
 
     const candidates = [];

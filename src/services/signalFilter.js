@@ -49,6 +49,12 @@ export function evaluateSignalQuality({ analysis, setup, settings = {}, ctx = {}
     else cautions.push('Price away from key liquidity level');
   }
 
+  // Session timing — prime windows win more; off-peak is a caution, not a block
+  const sess = String(snap.session || '').toLowerCase();
+  if (sess.includes('overlap')) confirmations.push('Prime session (London/NY overlap)');
+  else if (sess.includes('london') || sess.includes('new york') || sess.includes('ny')) confirmations.push('Prime session (London/NY)');
+  else if (sess.includes('asian')) cautions.push('Off-peak Asian session — lower volume');
+
   // Favorable volatility
   if (/extreme|very high/i.test(snap.volatility || '')) hardFails.push('Extreme volatility — avoid');
   else if (/low/i.test(snap.volatility || '')) cautions.push('Low volatility — limited movement');

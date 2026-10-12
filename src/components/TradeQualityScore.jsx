@@ -17,7 +17,7 @@ export default function TradeQualityScore({ analysis, setup }) {
     { label: 'Momentum', value: b.momentum, max: 15 },
     { label: 'Macro Environment', value: b.macro, max: 15 },
     { label: 'Risk / Reward', value: b.rr, max: 10 },
-    { label: 'News Risk', value: b.newsRisk, max: 5 },
+    { label: 'Timing & News', value: b.timing, max: 5 },
   ];
 
   return (

@@ -128,6 +128,13 @@ function buildConfirmationFlags(analysis, setup, opts = {}) {
       confirmations.push('Price near key support/resistance');
   }
 
+  // Session timing — prime windows win more for XAUUSD/EURUSD day trading
+  const sess = String(snap.session || '').toLowerCase();
+  if (sess.includes('overlap')) confirmations.push('Prime session (London/NY overlap)');
+  else if (sess.includes('london') || sess.includes('new york') || sess.includes('ny')) confirmations.push('Prime session (London/NY)');
+  else if (sess.includes('asian')) cautions.push('Off-peak Asian session — lower volume');
+  else if (sess.includes('closed')) cautions.push('Market closed — illiquid');
+
   // Volatility
   if (/extreme|very high/i.test(snap.volatility || '')) cautions.push('Elevated volatility');
 

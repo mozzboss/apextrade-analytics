@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, X } from 'lucide-react';
 import { TradingJournalService, SettingsService } from '@/services/storage';
 import { PositionSizeService } from '@/services/riskEngine';
+import { SYMBOL_META } from '@/services/marketData';
 import TradeJournalTable from '@/components/TradeJournalTable';
 import LiveTradeCalc from '@/components/LiveTradeCalc';
 import SectionCard from '@/components/SectionCard';
@@ -82,7 +83,7 @@ export default function Journal() {
       {showForm && (
         <SectionCard title="Log a Trade">
           <div className="grid sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <FormField label="Market"><select value={form.market} onChange={(e) => setForm({ ...form, market: e.target.value })} className="input-field"><option>XAUUSD</option><option>EURUSD</option></select></FormField>
+            <FormField label="Market"><select value={form.market} onChange={(e) => setForm({ ...form, market: e.target.value })} className="input-field">{Object.keys(SYMBOL_META).map((s) => <option key={s} value={s}>{s}</option>)}</select></FormField>
             <FormField label="Direction"><select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })} className="input-field"><option>BUY</option><option>SELL</option></select></FormField>
             <FormField label="Entry"><input value={form.entry} onChange={(e) => setForm({ ...form, entry: e.target.value })} type="number" step="0.00001" className="input-field" /></FormField>
             <FormField label="Stop Loss"><input value={form.stop_loss} onChange={(e) => setForm({ ...form, stop_loss: e.target.value })} type="number" step="0.00001" className="input-field" /></FormField>
@@ -118,7 +119,7 @@ export default function Journal() {
       <SectionCard title="Trade History" icon={BookOpen}
         action={
           <div className="flex flex-wrap gap-1.5">
-            <FilterSelect value={filterMarket} onChange={setFilterMarket} options={['ALL', 'XAUUSD', 'EURUSD']} />
+            <FilterSelect value={filterMarket} onChange={setFilterMarket} options={['ALL', ...Object.keys(SYMBOL_META)]} />
             <FilterSelect value={filterResult} onChange={setFilterResult} options={['ALL', 'open', 'win', 'loss', 'breakeven', 'cancelled']} />
             <FilterSelect value={filterSession} onChange={setFilterSession} options={['ALL', 'London', 'New York', 'Asian', 'Overlap']} />
           </div>

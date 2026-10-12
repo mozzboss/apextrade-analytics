@@ -17,6 +17,7 @@ import MultiTimeframeCard from '@/components/MultiTimeframeCard';
 import TradeQualityScore from '@/components/TradeQualityScore';
 import PositionSizeCalculator from '@/components/PositionSizeCalculator';
 import OrderPreviewModal from '@/components/OrderPreviewModal';
+import QuickTradeBar from '@/components/QuickTradeBar';
 
 export default function MarketScreen() {
   const { symbol = 'XAUUSD' } = useParams();
@@ -30,6 +31,7 @@ export default function MarketScreen() {
   const [chartLoading, setChartLoading] = useState(true);
   const [news, setNews] = useState([]);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [tradeAnalysis, setTradeAnalysis] = useState(null);
   const [settings, setSettings] = useState(null);
   const [live, setLive] = useState(null);
   const baseSym = symbol === 'XAUUSD' ? 'Au' : { EURUSD: '€', GBPUSD: '£', USDJPY: '¥', AUDUSD: 'A$', USDCAD: 'C$', NZDUSD: 'N$', USDCHF: '₣' }[symbol] || '$';
@@ -138,13 +140,20 @@ export default function MarketScreen() {
             </div>
             <span className="text-xs text-muted-foreground">Setup Quality: <span className="text-gold font-semibold">{analysis?.setup?.quality_grade || '—'}</span></span>
             {analysis?.setup && (analysis.setup.direction === 'BUY' || analysis.setup.direction === 'SELL') && (
-              <button onClick={() => setTradeOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium">
-                <ShieldCheck className="w-3.5 h-3.5" /> Place Paper Trade
+              <button onClick={() => { setTradeAnalysis(analysis); setTradeOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium">
+                <ShieldCheck className="w-3.5 h-3.5" /> Place Trade
               </button>
             )}
           </div>
         </div>
       </div>
+
+      <QuickTradeBar
+        symbol={symbol}
+        currentPrice={live?.mid ?? snap?.current_price}
+        decimals={meta.decimals}
+        onPlace={(manualSetup) => { setTradeAnalysis({ ...analysis, setup: manualSetup }); setTradeOpen(true); }}
+      />
 
       {/* Chart */}
       <SectionCard title="Price Chart" icon={BarChart3}
@@ -249,7 +258,7 @@ export default function MarketScreen() {
         Paper trading mode. Analysis is AI-sourced from live web data and may be approximate. Not financial advice. Capital preservation first.
       </div>
 
-      <OrderPreviewModal open={tradeOpen} analysis={analysis} symbol={symbol} onClosed={() => setTradeOpen(false)} onPlaced={() => setTradeOpen(false)} />
+      <OrderPreviewModal open={tradeOpen} analysis={tradeAnalysis} symbol={symbol} onClosed={() => setTradeOpen(false)} onPlaced={() => setTradeOpen(false)} />
     </div>
   );
 }

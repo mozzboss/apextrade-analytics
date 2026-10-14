@@ -112,10 +112,16 @@ export default async function (req: Request): Promise<Response> {
       const entryHigh = Number(analysis.setup.entry_zone_high);
       let entry = (entryLow && entryHigh) ? (entryLow + entryHigh) / 2 : (entryHigh || entryLow);
       const stopLoss = Number(analysis.setup.stop_loss);
-      const takeProfit = Number(analysis.setup.tp1);
+      let takeProfit = Number(analysis.setup.tp1);
       const stopDistance = Math.abs(entry - stopLoss);
-      const targetDistance = Math.abs(takeProfit - entry);
-      const riskReward = stopDistance > 0 ? targetDistance / stopDistance : 0;
+      // Enforce minimum R/R by extending TP outward if the AI's TP is too close
+      const minRR = Number(settings.min_risk_reward ?? 2);
+      let riskReward = stopDistance > 0 ? Math.abs(takeProfit - entry) / stopDistance : 0;
+      if (stopDistance > 0 && riskReward < minRR) {
+        const sign = analysis.setup.direction === 'BUY' ? 1 : -1;
+        takeProfit = entry + sign * stopDistance * minRR;
+        riskReward = minRR;
+      }
       const riskPercent = getAutoRiskPercent(settings);
       const risk = (Number(settings.account_balance ?? 10000) * riskPercent) / 100;
 

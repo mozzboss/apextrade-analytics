@@ -101,6 +101,15 @@ export const AutoTradeService = {
       const eHigh = Number(setup.entry_zone_high);
       if (eLow && eHigh) order.entry = (eLow + eHigh) / 2;
       const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
+      // Enforce minimum R/R by extending TP outward if the AI's TP is too close
+      const minRR = Number(settings.min_risk_reward ?? 2);
+      if (stopDistance > 0 && Number(order.take_profit) > 0) {
+        const currentRR = Math.abs(Number(order.take_profit) - Number(order.entry)) / stopDistance;
+        if (currentRR < minRR) {
+          const sign = order.direction === 'BUY' ? 1 : -1;
+          order.take_profit = Number(order.entry) + sign * stopDistance * minRR;
+        }
+      }
       const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
       order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
       order.estimated_loss = order.risk;
@@ -108,7 +117,7 @@ export const AutoTradeService = {
       const guards = evaluateTrade({
         trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total, openTrades: (trades || []).filter((t) => t.status === 'open'),
       });
-      candidates.push({ symbol: sym, order, guards, grade, score: score?.total, reviewOnly: !bestGrade });
+      candidates.push({ symbol: sym, order, guards, grade, score: setup.quality_score ?? score?.total, reviewOnly: !bestGrade });
     }
 
     add('evaluate', `${candidates.length} candidate(s) found. Running pre-trade guards…`, 'running');
@@ -172,6 +181,15 @@ export const AutoTradeService = {
       if (price?.mid) order.entry = price.mid;
     }
     const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
+    // Enforce minimum R/R by extending TP outward if the AI's TP is too close
+    const minRR = Number(settings.min_risk_reward ?? 2);
+    if (stopDistance > 0 && Number(order.take_profit) > 0) {
+      const currentRR = Math.abs(Number(order.take_profit) - Number(order.entry)) / stopDistance;
+      if (currentRR < minRR) {
+        const sign = order.direction === 'BUY' ? 1 : -1;
+        order.take_profit = Number(order.entry) + sign * stopDistance * minRR;
+      }
+    }
     const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
     order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
     order.estimated_loss = order.risk;

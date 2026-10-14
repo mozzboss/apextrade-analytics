@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_trade_scan",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_scan": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-scan",
+            "args": {
+              "source": "scheduled"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run auto-trade scan",
+            "description": "Scan 8 markets and execute qualifying setups"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Hourly automated market scan during forex hours \u2014 analyzes 8 pairs, executes A+/A/B setups through risk guards",
+  "name": "Auto Trade Scan",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 * * * 1-5",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

@@ -6,6 +6,12 @@ import { BrokerService } from './brokerService';
 import { OandaService } from './oandaService';
 import { getAutoRiskPercent } from './riskEngine';
 
+const DECIMALS = { XAUUSD: 2, USDJPY: 3, EURUSD: 5, GBPUSD: 5, AUDUSD: 5, USDCAD: 5, NZDUSD: 5, USDCHF: 5 };
+function roundPrice(symbol, price) {
+  const d = DECIMALS[symbol] ?? 5;
+  return Number(Number(price).toFixed(d));
+}
+
 const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD', 'USDCHF'];
 
 // ---------------------------------------------------------------------------
@@ -99,7 +105,7 @@ export const AutoTradeService = {
       // current price; SL/TP are absolute levels that stay correct.
       const eLow = Number(setup.entry_zone_low);
       const eHigh = Number(setup.entry_zone_high);
-      if (eLow && eHigh) order.entry = (eLow + eHigh) / 2;
+      if (eLow && eHigh) order.entry = roundPrice(sym, (eLow + eHigh) / 2);
       const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
       // Enforce minimum R/R by extending TP outward if the AI's TP is too close
       const minRR = Number(settings.min_risk_reward ?? 2);
@@ -107,14 +113,15 @@ export const AutoTradeService = {
         const currentRR = Math.abs(Number(order.take_profit) - Number(order.entry)) / stopDistance;
         if (currentRR < minRR) {
           const sign = order.direction === 'BUY' ? 1 : -1;
-          order.take_profit = Number(order.entry) + sign * stopDistance * minRR;
-        }
-      }
-      const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
-      order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
-      order.estimated_loss = order.risk;
-      order.estimated_profit = order.risk * order.risk_reward;
-      const guards = evaluateTrade({
+          order.take_profit = roundPrice(order.market, Number(order.entry) + sign * stopDistance * minRR);
+          }
+          }
+          const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
+          order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
+          order.estimated_loss = order.risk;
+          order.estimated_profit = order.risk * order.risk_reward;
+
+          const guards = evaluateTrade({
         trade: order, settings, todayTrades, todayPnL, nextHighEventTime: nextHigh, qualityScore: score?.total, openTrades: (trades || []).filter((t) => t.status === 'open'),
       });
       candidates.push({ symbol: sym, order, guards, grade, score: setup.quality_score ?? score?.total, reviewOnly: !bestGrade });
@@ -187,7 +194,7 @@ export const AutoTradeService = {
       const currentRR = Math.abs(Number(order.take_profit) - Number(order.entry)) / stopDistance;
       if (currentRR < minRR) {
         const sign = order.direction === 'BUY' ? 1 : -1;
-        order.take_profit = Number(order.entry) + sign * stopDistance * minRR;
+        order.take_profit = roundPrice(order.market, Number(order.entry) + sign * stopDistance * minRR);
       }
     }
     const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));

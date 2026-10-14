@@ -169,6 +169,13 @@ export function evaluateTrade(params: any): { allowed: boolean; reasons: string[
 const OANDA_BASE: Record<string, string> = { practice: 'https://api-fxpractice.oanda.com', live: 'https://api-fxtrade.oanda.com' };
 const SYMBOL_TO_OANDA: Record<string, string> = { XAUUSD: 'XAU_USD', EURUSD: 'EUR_USD', GBPUSD: 'GBP_USD', USDJPY: 'USD_JPY', AUDUSD: 'AUD_USD', USDCAD: 'USD_CAD', NZDUSD: 'NZD_USD', USDCHF: 'USD_CHF' };
 const QUOTE: Record<string, string> = { XAUUSD: 'USD', EURUSD: 'USD', GBPUSD: 'USD', USDJPY: 'JPY', AUDUSD: 'USD', USDCAD: 'CAD', NZDUSD: 'USD', USDCHF: 'CHF' };
+export const DECIMALS: Record<string, number> = { XAUUSD: 2, USDJPY: 3, EURUSD: 5, GBPUSD: 5, AUDUSD: 5, USDCAD: 5, NZDUSD: 5, USDCHF: 5 };
+
+export function roundPrice(symbol: string, price: number): number {
+  const d = DECIMALS[symbol] ?? 5;
+  return Number(price.toFixed(d));
+}
+
 const MAX_UNITS = 500000;
 
 async function oandaRequest(settings: any, path: string, options: RequestInit = {}, query: Record<string, string> = {}) {

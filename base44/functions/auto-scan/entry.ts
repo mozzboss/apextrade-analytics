@@ -3,7 +3,7 @@ import {
   SYMBOLS, SYMBOL_META, gradeFromScore, computeSignalScore, evaluateTrade,
   getAutoRiskPercent, inferStrategy, classifyCondition,
   oandaPricing, oandaPlaceOrder, buildAnalysisPrompt, buildCalendarPrompt,
-  fullAnalysisSchema, calendarSchema,
+  fullAnalysisSchema, calendarSchema, roundPrice,
 } from './util.ts';
 
 // ---------------------------------------------------------------------------
@@ -110,16 +110,16 @@ export default async function (req: Request): Promise<Response> {
       // correct regardless of fill price.
       const entryLow = Number(analysis.setup.entry_zone_low);
       const entryHigh = Number(analysis.setup.entry_zone_high);
-      let entry = (entryLow && entryHigh) ? (entryLow + entryHigh) / 2 : (entryHigh || entryLow);
-      const stopLoss = Number(analysis.setup.stop_loss);
-      let takeProfit = Number(analysis.setup.tp1);
+      let entry = roundPrice(symbol, (entryLow && entryHigh) ? (entryLow + entryHigh) / 2 : (entryHigh || entryLow));
+      const stopLoss = roundPrice(symbol, Number(analysis.setup.stop_loss));
+      let takeProfit = roundPrice(symbol, Number(analysis.setup.tp1));
       const stopDistance = Math.abs(entry - stopLoss);
       // Enforce minimum R/R by extending TP outward if the AI's TP is too close
       const minRR = Number(settings.min_risk_reward ?? 2);
       let riskReward = stopDistance > 0 ? Math.abs(takeProfit - entry) / stopDistance : 0;
       if (stopDistance > 0 && riskReward < minRR) {
         const sign = analysis.setup.direction === 'BUY' ? 1 : -1;
-        takeProfit = entry + sign * stopDistance * minRR;
+        takeProfit = roundPrice(symbol, entry + sign * stopDistance * minRR);
         riskReward = minRR;
       }
       const riskPercent = getAutoRiskPercent(settings);

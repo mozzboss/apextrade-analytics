@@ -162,7 +162,7 @@ export default function AutoTrade() {
                         <span className="text-xs text-muted-foreground">{AUTO_SIZE_LABELS[order.size_profile] || order.size_profile} · {order.risk_percent.toFixed(2)}%</span>
                         {candidate.reviewOnly && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warn/15 text-warn border border-warn/30">Review only</span>}
                       </div>
-                      {autoOn && (result.reviewRequired || candidate.reviewOnly) && (
+                      {autoOn && result.reviewRequired && (
                         <button onClick={() => approveCandidate(candidate)} disabled={!candidate.guards.allowed || executed || approving === candidate.symbol}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50">
                           {approving === candidate.symbol ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}

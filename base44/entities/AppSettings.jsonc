@@ -45,7 +45,7 @@
     },
     "max_trades_per_day": {
       "type": "number",
-      "default": 5
+      "default": 10
     },
     "daily_loss_limit": {
       "type": "number",

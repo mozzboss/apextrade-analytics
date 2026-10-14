@@ -104,9 +104,13 @@ export default async function (req: Request): Promise<Response> {
       if (analysis.setup.direction === 'NONE') { scanned.push({ symbol, grade, direction: 'NONE' }); continue; }
       if (String(analysis.setup.status || '').toUpperCase() === 'NO TRADE') { scanned.push({ symbol, grade, status: 'NO TRADE' }); continue; }
 
-      // Build order
-      let entry = Number(analysis.setup.entry_zone_high ?? analysis.setup.entry_zone_low);
-      if (livePrice != null) entry = livePrice;
+      // Build order — use the AI's entry zone midpoint (NOT the live price)
+      // so the R/R matches the setup the AI designed. The MARKET order fills
+      // at whatever the current price is; SL/TP are absolute levels that stay
+      // correct regardless of fill price.
+      const entryLow = Number(analysis.setup.entry_zone_low);
+      const entryHigh = Number(analysis.setup.entry_zone_high);
+      let entry = (entryLow && entryHigh) ? (entryLow + entryHigh) / 2 : (entryHigh || entryLow);
       const stopLoss = Number(analysis.setup.stop_loss);
       const takeProfit = Number(analysis.setup.tp1);
       const stopDistance = Math.abs(entry - stopLoss);
@@ -141,7 +145,7 @@ export default async function (req: Request): Promise<Response> {
         todayTrades: [...todayTrades, ...executed.map((e: any) => ({ market: e.symbol, status: 'open' }))],
         todayPnL,
         nextHighEventTime: nextHigh,
-        qualityScore: computeSignalScore(analysis)?.total,
+        qualityScore: analysis.setup.quality_score,
         openTrades: [...openTrades, ...executed.map((e: any) => ({ market: e.symbol, status: 'open' }))],
       });
 

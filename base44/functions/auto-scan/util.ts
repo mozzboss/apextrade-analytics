@@ -275,7 +275,7 @@ export function buildAnalysisPrompt(symbol: string, meta: any, livePrice?: numbe
 2) market_structure: label (BULLISH STRUCTURE/BEARISH STRUCTURE/RANGE/REVERSAL POSSIBLE/WAITING FOR CONFIRMATION), higher_highs, higher_lows, break_of_structure, change_of_character, notes.
 3) multi_timeframe: monthly, weekly, daily, h4, h1 (Bullish/Bearish/Neutral/Pullback/Range), overall_bias, overall_status.
 4) indicators: ema20, ema50, ema100, ema200, rsi, macd, atr, vwap.
-5) setup: a high-quality trade setup (or NO TRADE). status (WATCHING/WAITING FOR CONFIRMATION/READY/NO TRADE), bias, direction (BUY/SELL/NONE), entry_zone_low, entry_zone_high, stop_loss, tp1, tp2, tp3, risk_reward, confidence, risk_level, quality_score (0-100), quality_grade (A+/A/B/C/NO TRADE), reasons (multiple confirmations), invalidation. If no valid setup, return NO TRADE.
+5) setup: a high-quality trade setup (or NO TRADE). status (WATCHING/WAITING FOR CONFIRMATION/READY/NO TRADE), bias, direction (BUY/SELL/NONE), entry_zone_low, entry_zone_high, stop_loss (just beyond the nearest swing high/low), tp1 (at least 2x the stop distance from the entry zone midpoint), tp2, tp3, risk_reward (MUST be >= 2.0 — if you cannot achieve 2.0, return NO TRADE), confidence, risk_level, quality_score (0-100), quality_grade (A+/A/B/C/NO TRADE), reasons (multiple confirmations), invalidation. If no valid setup or risk_reward below 2.0, return NO TRADE.
 6) macro: factors array ({factor, impact: Positive/Negative/Neutral, note}). Cover: ${meta.macroFocus}
 7) news: relevant recent headlines ({headline, source, time, impact}).
 Never fabricate prices. If no live price was provided and you cannot find reliable live data, set data_available=false. Return JSON.`;

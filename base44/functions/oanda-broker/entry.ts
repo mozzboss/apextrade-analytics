@@ -100,7 +100,7 @@ async function placeOrder(base44: any, settings: Settings, order: any, userId: s
   if ((trades || []).some((trade: any) => trade.market === market && trade.status === "open")) throw new Error(`A ${market} position is already open`);
   const today = new Date().toISOString().slice(0, 10);
   const todayTrades = (trades || []).filter((trade: any) => (trade.date || String(trade.created_date || "").slice(0, 10)) === today);
-  const maxTrades = Number(settings.max_trades_per_day ?? 5);
+  const maxTrades = Number(settings.max_trades_per_day ?? 10);
   if (todayTrades.length >= maxTrades) throw new Error(`Maximum trades per day reached (${todayTrades.length}/${maxTrades})`);
   const todayPnl = todayTrades.reduce((sum: number, trade: any) => sum + (Number(trade.profit_loss) || 0), 0);
   const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit ?? 0));

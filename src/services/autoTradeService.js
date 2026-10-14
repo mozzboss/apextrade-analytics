@@ -94,12 +94,12 @@ export const AutoTradeService = {
         risk: ((settings.account_balance ?? 10000) * riskPercent) / 100,
         size_profile: settings.auto_size_profile || 'small',
       };
-      if (settings.oanda_connected) {
-        try {
-          const px = await OandaService.getPricing(sym);
-          if (px?.mid) { order.entry = px.mid; add('scan', `${sym}: live OANDA price ${px.mid} used for entry.`, 'ok'); }
-        } catch (e) { add('scan', `${sym}: OANDA price unavailable — ${e.message}`, 'warn'); }
-      }
+      // Use the AI's entry zone midpoint — NOT the live price — so the R/R
+      // matches the setup the AI designed. The MARKET order fills at the
+      // current price; SL/TP are absolute levels that stay correct.
+      const eLow = Number(setup.entry_zone_low);
+      const eHigh = Number(setup.entry_zone_high);
+      if (eLow && eHigh) order.entry = (eLow + eHigh) / 2;
       const stopDistance = Math.abs(Number(order.entry) - Number(order.stop_loss));
       const targetDistance = Math.abs(Number(order.take_profit) - Number(order.entry));
       order.risk_reward = stopDistance > 0 ? targetDistance / stopDistance : 0;
@@ -125,7 +125,7 @@ export const AutoTradeService = {
         });
       }
       if (c.guards.allowed) {
-        if (c.reviewOnly) {
+        if (c.reviewOnly && reviewRequired) {
           add('review', `${c.symbol}: B-grade review-only — manual approval required to execute.`, 'candidate');
         } else if (autoMode && reviewRequired) {
           add('review', `${c.symbol}: ready for review — max loss $${c.order.estimated_loss.toFixed(2)}, target profit $${c.order.estimated_profit.toFixed(2)}, SL ${c.order.stop_loss}, TP ${c.order.take_profit}.`, 'candidate');

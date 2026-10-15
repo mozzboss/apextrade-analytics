@@ -45,6 +45,21 @@ export default async function (req: Request): Promise<Response> {
     const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit || 0));
     if (dailyLossLimit > 0 && todayPnL <= -dailyLossLimit) return Response.json({ status: 'daily_loss_reached', executed: [], todayPnL });
 
+    // 2b. Circuit breaker: stop after 3+ consecutive losses within the last 24h
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { items: recentClosed } = await sdk.entities.Trade.filter(
+      { result: { $in: ['loss', 'win'] }, created_date: { $gte: since24h } },
+      { sort: '-created_date', limit: 10 }
+    );
+    let consecutiveLosses = 0;
+    for (const t of recentClosed) {
+      if (t.result === 'loss') consecutiveLosses++;
+      else break;
+    }
+    if (consecutiveLosses >= 3) {
+      return Response.json({ status: 'circuit_breaker', executed: [], consecutiveLosses, message: '3+ consecutive losses in last 24h — trading paused, resets after 24h' });
+    }
+
     // 3. Check news blackout
     let nextHigh: number | null = null;
     try {
@@ -73,8 +88,10 @@ export default async function (req: Request): Promise<Response> {
     const scanned: any[] = [];
     const useOanda = settings.oanda_connected && !settings.paper_mode;
 
+    const BLOCKED_SYMBOLS = ['XAUUSD']; // Not tradeable on practice account — remove when enabled
     for (const symbol of SYMBOLS) {
       if (todayTrades.length + executed.length >= maxTrades) break;
+      if (BLOCKED_SYMBOLS.includes(symbol)) { scanned.push({ symbol, skip: 'blocked (not tradeable on account)' }); continue; }
       if (openTrades.some((t: any) => t.market === symbol) || executed.some((e: any) => e.symbol === symbol)) {
         scanned.push({ symbol, skip: 'position already open' });
         continue;

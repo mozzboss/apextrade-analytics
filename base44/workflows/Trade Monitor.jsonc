@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "trade_monitor",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "monitor_trades": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "trade-monitor",
+            "args": {
+              "source": "scheduled"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Monitor & manage open trades",
+            "description": "Move SL to breakeven, trail stops, close stale losers, sync closed trades to journal"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Every 15 minutes during forex hours \u2014 moves SL to breakeven when +1R, trails stops at +2R, closes stale losers after 4h, and syncs closed OANDA trades to the journal",
+  "name": "Trade Monitor",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/15 * * * 1-5",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

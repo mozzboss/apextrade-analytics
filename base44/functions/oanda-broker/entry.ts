@@ -142,6 +142,20 @@ export default async function (req: Request): Promise<Response> {
           if (body.journalTradeId) await base44.entities.Trade.update(body.journalTradeId, { result: "cancelled", status: "cancelled" });
         }
         break;
+      case "listOpenTrades":
+        result = await request(settings, "/v3/accounts/{account}/openTrades");
+        break;
+      case "modifyTrade": {
+        if (!body.tradeId) throw new Error("tradeId is required");
+        const modifyBody: any = {};
+        if (body.stopLoss) modifyBody.stopLoss = { timeInForce: "GTC", price: String(body.stopLoss) };
+        if (body.takeProfit) modifyBody.takeProfit = { timeInForce: "GTC", price: String(body.takeProfit) };
+        result = await request(settings, `/v3/accounts/{account}/trades/${encodeURIComponent(body.tradeId)}/orders`, { method: "PUT", body: JSON.stringify(modifyBody) });
+        break;
+      }
+      case "getClosedTrades":
+        result = await request(settings, "/v3/accounts/{account}/trades", {}, { state: "CLOSED", count: String(body.count || 20) });
+        break;
       default: return Response.json({ error: "Unsupported OANDA action" }, { status: 400 });
     }
     return Response.json(result);

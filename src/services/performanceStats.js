@@ -80,6 +80,7 @@ export function computeWinRate(trades) {
     byTimeframe: byGroup((t) => t.timeframe),
     byMarketCondition: byGroup((t) => t.market_condition),
     byDirection: byGroup((t) => t.direction),
+    bySetupQuality: byGroup((t) => t.setup_quality),
   };
 }
 

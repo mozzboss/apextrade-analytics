@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { TradingJournalService } from '@/services/storage';
 import PerformanceStats from '@/components/PerformanceStats';
+import SetupQualityBreakdown from '@/components/SetupQualityBreakdown';
 import SectionCard from '@/components/SectionCard';
 
 export default function Performance() {
@@ -28,6 +29,7 @@ export default function Performance() {
       <SectionCard title="Performance Metrics" icon={BarChart3}>
         {loading ? <div className="h-40 rounded-xl bg-muted/40 animate-pulse" /> : <PerformanceStats trades={trades} />}
       </SectionCard>
+      {loading ? <div className="h-40 rounded-xl bg-muted/40 animate-pulse" /> : <SetupQualityBreakdown trades={trades} />}
       <div className="text-[11px] text-muted-foreground rounded-xl border border-border bg-card px-4 py-3">
         Actual trade results only. Backtested and estimated probabilities are shown separately on the trade preview and require sufficient historical samples (≥20 decisive trades). No strategy is modified automatically — underperforming setups are flagged for your review.
       </div>

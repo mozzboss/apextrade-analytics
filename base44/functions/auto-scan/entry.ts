@@ -41,16 +41,28 @@ export default async function (req: Request): Promise<Response> {
     const maxTrades = Number(settings.max_trades_per_day || 10);
     if (todayTrades.length >= maxTrades) return Response.json({ status: 'max_trades_reached', executed: [], count: todayTrades.length, max: maxTrades });
 
-    const todayPnL = todayTrades.reduce((s: number, t: any) => s + (Number(t.profit_loss) || 0), 0);
-    const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit || 0));
-    if (dailyLossLimit > 0 && todayPnL <= -dailyLossLimit) return Response.json({ status: 'daily_loss_reached', executed: [], todayPnL });
-
-    // 2a. Daily profit goal — stop opening new trades once target is hit
-    const dailyGoal = Number(settings.daily_profit_goal || 0);
-    if (dailyGoal > 0 && todayPnL >= dailyGoal) return Response.json({ status: 'daily_goal_reached', executed: [], todayPnL, dailyGoal });
-
-    // 2b. Circuit breaker: stop after 3+ consecutive losses within the last 24h
+    // 2a. Circuit breaker — 24-hour rolling window for P/L (resets every 24h,
+    //     not at midnight). Max trades per day stays on the calendar day above.
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { items: trades24hItems } = await sdk.entities.Trade.filter(
+      { created_date: { $gte: since24h } },
+      { limit: 200 }
+    );
+    const todayPnL = (trades24hItems || []).reduce((s: number, t: any) => s + (Number(t.profit_loss) || 0), 0);
+
+    // 2b. Daily loss limit — resets automatically every 24 hours
+    const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit || 0));
+    if (dailyLossLimit > 0 && todayPnL <= -dailyLossLimit) {
+      return Response.json({ status: 'circuit_breaker', executed: [], todayPnL, message: 'Daily loss limit hit — trading paused, resets after 24h' });
+    }
+
+    // 2c. Circuit breaker: lock in daily profits + pause trading when goal is hit
+    const dailyGoal = Number(settings.daily_profit_goal || 0);
+    if (dailyGoal > 0 && todayPnL >= dailyGoal) {
+      return Response.json({ status: 'circuit_breaker', executed: [], todayPnL, dailyGoal, message: 'Daily profit goal reached — profits locked in, trading paused' });
+    }
+
+    // 2d. Circuit breaker: pause after 3+ consecutive losses in the last 24h
     const { items: recentClosed } = await sdk.entities.Trade.filter(
       { result: { $in: ['loss', 'win'] }, created_date: { $gte: since24h } },
       { sort: '-created_date', limit: 10 }

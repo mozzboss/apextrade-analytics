@@ -179,17 +179,16 @@ export default async function (req: Request): Promise<Response> {
     //    An Alert record marks the day so we only act once per calendar day.
     const dailyGoal = Number(settings.daily_profit_goal || 0);
     if (dailyGoal > 0) {
-      const today = new Date().toISOString().slice(0, 10);
-      const { items: todayTrades } = await sdk.entities.Trade.filter(
-        { date: today, result: { $in: ['win', 'loss', 'breakeven'] } },
-        { limit: 100 }
+      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { items: trades24h } = await sdk.entities.Trade.filter(
+        { result: { $in: ['win', 'loss', 'breakeven'] }, created_date: { $gte: since24h } },
+        { limit: 200 }
       );
-      const todayRealizedPnL = (todayTrades || []).reduce((s: number, t: any) => s + (Number(t.profit_loss) || 0), 0);
+      const todayRealizedPnL = (trades24h || []).reduce((s: number, t: any) => s + (Number(t.profit_loss) || 0), 0);
 
       if (todayRealizedPnL >= dailyGoal) {
-        const sinceStartOfDay = new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z';
         const { items: existing } = await sdk.entities.Alert.filter(
-          { type: 'daily_goal_reached', created_date: { $gte: sinceStartOfDay } },
+          { type: 'daily_goal_reached', created_date: { $gte: since24h } },
           { limit: 1 }
         );
 

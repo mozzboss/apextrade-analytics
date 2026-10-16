@@ -45,6 +45,10 @@ export default async function (req: Request): Promise<Response> {
     const dailyLossLimit = Math.abs(Number(settings.daily_loss_limit || 0));
     if (dailyLossLimit > 0 && todayPnL <= -dailyLossLimit) return Response.json({ status: 'daily_loss_reached', executed: [], todayPnL });
 
+    // 2a. Daily profit goal — stop opening new trades once target is hit
+    const dailyGoal = Number(settings.daily_profit_goal || 0);
+    if (dailyGoal > 0 && todayPnL >= dailyGoal) return Response.json({ status: 'daily_goal_reached', executed: [], todayPnL, dailyGoal });
+
     // 2b. Circuit breaker: stop after 3+ consecutive losses within the last 24h
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { items: recentClosed } = await sdk.entities.Trade.filter(

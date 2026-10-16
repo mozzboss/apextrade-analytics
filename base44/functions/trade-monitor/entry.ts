@@ -174,6 +174,89 @@ export default async function (req: Request): Promise<Response> {
       });
     }
 
+    // 6. Daily profit goal — if today's realized P/L hits the target, close all
+    //    open trades to lock in wins and email a monitoring analysis report.
+    //    An Alert record marks the day so we only act once per calendar day.
+    const dailyGoal = Number(settings.daily_profit_goal || 0);
+    if (dailyGoal > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { items: todayTrades } = await sdk.entities.Trade.filter(
+        { date: today, result: { $in: ['win', 'loss', 'breakeven'] } },
+        { limit: 100 }
+      );
+      const todayRealizedPnL = (todayTrades || []).reduce((s: number, t: any) => s + (Number(t.profit_loss) || 0), 0);
+
+      if (todayRealizedPnL >= dailyGoal) {
+        const sinceStartOfDay = new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z';
+        const { items: existing } = await sdk.entities.Alert.filter(
+          { type: 'daily_goal_reached', created_date: { $gte: sinceStartOfDay } },
+          { limit: 1 }
+        );
+
+        if (!existing?.length) {
+          // Close all remaining open trades to lock in the wins
+          const closedForGoal: any[] = [];
+          for (const ot of oandaTrades) {
+            try {
+              const closeData = await oandaRequest(settings, `/v3/accounts/{account}/trades/${encodeURIComponent(ot.id)}/close`, { method: 'PUT' });
+              const realizedPL = Number(closeData?.orderFillTransaction?.pl || 0);
+              const journal = journalMap.get(ot.id);
+              if (journal) await sdk.entities.Trade.update(journal.id, {
+                status: 'closed',
+                result: realizedPL > 0 ? 'win' : realizedPL < 0 ? 'loss' : 'breakeven',
+                profit_loss: realizedPL,
+              });
+              closedForGoal.push({ symbol: OANDA_TO_SYMBOL[ot.instrument], tradeId: ot.id, profit_loss: realizedPL });
+            } catch (e: any) { closedForGoal.push({ tradeId: ot.id, error: e.message }); }
+          }
+
+          // Send monitoring analysis email
+          try {
+            const owner = await sdk.entities.User.get(settings.created_by_id).catch(() => null);
+            if (owner?.email) {
+              const allToday = [...(todayTrades || []), ...closedForGoal.map((c) => ({ result: c.profit_loss > 0 ? 'win' : c.profit_loss < 0 ? 'loss' : 'breakeven' }))];
+              const wins = allToday.filter((t: any) => t.result === 'win').length;
+              const losses = allToday.filter((t: any) => t.result === 'loss').length;
+              const decisive = wins + losses;
+              const winRate = decisive > 0 ? ((wins / decisive) * 100).toFixed(1) : '0.0';
+              await sdk.integrations.Core.SendEmail({
+                to: owner.email,
+                template_name: 'DailyGoalReached',
+                variables: {
+                  first_name: owner.full_name || 'Trader',
+                  daily_pnl: todayRealizedPnL.toFixed(2),
+                  goal_amount: dailyGoal.toFixed(2),
+                  trade_count: String(allToday.length),
+                  win_rate: winRate,
+                  closed_count: String(closedForGoal.length),
+                },
+              });
+            }
+          } catch {}
+
+          // Mark the day so we don't repeat the action or email
+          await sdk.entities.Alert.create({
+            market: 'PORTFOLIO',
+            type: 'daily_goal_reached',
+            message: `Daily profit goal reached: $${todayRealizedPnL.toFixed(2)} / $${dailyGoal.toFixed(2)}. ${closedForGoal.length} open trade(s) closed to lock in wins.`,
+            active: false,
+            triggered: true,
+          });
+
+          return Response.json({
+            status: 'daily_goal_reached',
+            todayPnL: todayRealizedPnL,
+            dailyGoal,
+            closedForGoal,
+            managed: actions.length,
+            actions,
+            synced: closedActions.length,
+            closedActions,
+          });
+        }
+      }
+    }
+
     return Response.json({
       status: 'ok',
       openTrades: oandaTrades.length,

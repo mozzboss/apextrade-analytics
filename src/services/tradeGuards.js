@@ -18,6 +18,11 @@ export function evaluateTrade({ trade, settings, todayTrades = [], todayPnL = 0,
     reasons.push(`Daily loss limit reached ($${todayPnL.toFixed(2)} vs -$${Number(s.daily_loss_limit)})`);
   }
 
+  // 2b. Daily profit goal — pause new trades once target is hit
+  if (s.daily_profit_goal != null && Number(s.daily_profit_goal) > 0 && todayPnL >= Number(s.daily_profit_goal)) {
+    reasons.push(`Daily profit goal reached ($${todayPnL.toFixed(2)} vs $${Number(s.daily_profit_goal)}) — trading paused to lock in wins`);
+  }
+
   // 3. Max trades per day
   if (s.max_trades_per_day != null && todayTrades.length >= Number(s.max_trades_per_day)) {
     reasons.push(`Max trades per day reached (${todayTrades.length}/${Number(s.max_trades_per_day)})`);

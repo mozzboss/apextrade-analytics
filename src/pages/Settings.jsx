@@ -11,7 +11,7 @@ export default function Settings() {
     account_balance: 10000, risk_per_trade: DEFAULTS.riskPerTrade, max_risk: DEFAULTS.maxRisk,
     min_risk_reward: DEFAULTS.minRiskReward, news_blackout_minutes: DEFAULTS.newsBlackoutMinutes, paper_mode: true,
     auto_mode: false, auto_require_confirmation: true, auto_size_profile: 'small',
-    max_trades_per_day: 5, daily_loss_limit: 3, kill_switch: false,
+    max_trades_per_day: 5, daily_loss_limit: 3, daily_profit_goal: 0, kill_switch: false,
     oanda_environment: 'practice', oanda_api_token: '', oanda_account_id: '', oanda_connected: false,
   });
   const [saved, setSaved] = useState(false);
@@ -120,6 +120,7 @@ export default function Settings() {
               </Field>
               <Field label="Max Trades / Day"><input type="number" value={form.max_trades_per_day} onChange={(e) => set('max_trades_per_day', Number(e.target.value))} className="input-field" /></Field>
               <Field label="Daily Loss Limit ($)" hint="Stops new trades once hit"><input type="number" step="0.5" value={form.daily_loss_limit} onChange={(e) => set('daily_loss_limit', Number(e.target.value))} className="input-field" /></Field>
+              <Field label="Daily Profit Goal ($)" hint="0 = off. When hit, open trades close to lock in wins & a monitoring report is emailed."><input type="number" step="0.5" value={form.daily_profit_goal} onChange={(e) => set('daily_profit_goal', Number(e.target.value))} className="input-field" /></Field>
             </div>
           </div>
         )}

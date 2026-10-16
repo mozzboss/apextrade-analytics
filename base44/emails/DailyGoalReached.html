@@ -1,0 +1,74 @@
+<mjml>
+  <mj-head>
+    <mj-title>Daily Profit Goal Reached — ApexTrade Analytics</mj-title>
+    <mj-preview>Your daily profit target was hit. Open trades were closed to lock in wins.</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Inter, Helvetica, Arial, sans-serif" />
+      <mj-section background-color="#0d0e11" padding="0 36px" />
+      <mj-text color="#f3f5f7" font-size="15px" line-height="1.6" padding="0" />
+      <mj-button background-color="#f0bc38" color="#0d0e11" border-radius="8px" font-weight="700" inner-padding="14px 28px" align="left" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#0d0e11">
+    <!-- Header band -->
+    <mj-section background-color="#f0bc38" padding="20px 36px">
+      <mj-column>
+        <mj-image src="https://media.base44.com/images/public/6ac6dbb61b8cb55c64e0400c/21d002e29_logo.png" alt="ApexTrade Analytics" width="120px" padding="0" />
+      </mj-column>
+    </mj-section>
+
+    <!-- Headline -->
+    <mj-section padding="36px 36px 8px">
+      <mj-column>
+        <mj-text font-size="28px" font-weight="700" color="#f0bc38" line-height="1.15" padding="0">Daily Profit Goal Reached</mj-text>
+        <mj-text color="#8591a3" font-size="14px" padding="8px 0 0">Your target was hit today, {{first_name}}. Open positions were closed automatically to lock in the gains.</mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Stats row -->
+    <mj-section padding="20px 36px">
+      <mj-column width="50%">
+        <mj-text font-size="11px" color="#8591a3" letter-spacing="1px" padding="0">REALIZED P/L TODAY</mj-text>
+        <mj-text font-size="26px" font-weight="700" color="#3fb950" padding="4px 0 0">${{daily_pnl}}</mj-text>
+      </mj-column>
+      <mj-column width="50%">
+        <mj-text font-size="11px" color="#8591a3" letter-spacing="1px" padding="0">DAILY GOAL</mj-text>
+        <mj-text font-size="26px" font-weight="700" color="#f0bc38" padding="4px 0 0">${{goal_amount}}</mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-divider border-color="#22232a" padding="0 36px" />
+
+    <!-- Breakdown -->
+    <mj-section padding="20px 36px">
+      <mj-column>
+        <mj-text font-size="13px" font-weight="600" color="#f3f5f7" padding="0 0 10px">Monitoring Analysis</mj-text>
+        <mj-text color="#f3f5f7" padding="0 0 8px">
+          <strong>Trades today:</strong> {{trade_count}}<br />
+          <strong>Win rate:</strong> {{win_rate}}%<br />
+          <strong>Trades closed to lock in wins:</strong> {{closed_count}}
+        </mj-text>
+        <mj-text color="#8591a3" font-size="13px" padding="8px 0 0">
+          All remaining open positions were closed at market to secure your profit. New trades are paused for the rest of the day. The circuit breaker resets tomorrow.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- CTA -->
+    <mj-section padding="12px 36px 36px">
+      <mj-column>
+        <mj-button href="https://apex-trade-analytics-copy-9f2ed50c.base44.app/performance">View Performance Dashboard</mj-button>
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer -->
+    <mj-section background-color="#0d0e11" padding="20px 36px 32px">
+      <mj-column>
+        <mj-divider border-color="#22232a" padding="0 0 16px" />
+        <mj-text color="#8591a3" font-size="11px" line-height="1.5" padding="0">
+          ApexTrade Analytics — automated trade monitoring. This report was generated when your daily profit goal was reached. Review your full performance breakdown in the app.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

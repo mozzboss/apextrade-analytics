@@ -132,8 +132,20 @@ export default async function (req: Request): Promise<Response> {
 
       if (!analysis?.setup) { scanned.push({ symbol, grade: '—' }); continue; }
 
-      const grade = analysis.setup.quality_grade || gradeFromScore(analysis.setup.quality_score);
-      if (!['A+', 'A', 'B'].includes(grade)) { scanned.push({ symbol, grade }); continue; }
+      // Quality gate — only auto-execute the highest-probability setups so
+      // the system produces successful trades:
+      //   1. Cross-check the AI's self-assessed grade against the server-side
+      //      structural score; use the STRICTER of the two.
+      //   2. Only A+ and A grades are auto-executed (B is too marginal).
+      //   3. Require the AI's confidence to be at least 70.
+      const aiGrade = analysis.setup.quality_grade || gradeFromScore(analysis.setup.quality_score);
+      const serverScore = computeSignalScore(analysis);
+      const serverGrade = serverScore ? gradeFromScore(serverScore.total) : aiGrade;
+      const RANK: Record<string, number> = { 'A+': 1, A: 2, B: 3, C: 4, 'NO TRADE': 5 };
+      const grade = (RANK[aiGrade] ?? 5) >= (RANK[serverGrade] ?? 5) ? serverGrade : aiGrade;
+      if (!['A+', 'A'].includes(grade)) { scanned.push({ symbol, grade, aiGrade, serverGrade }); continue; }
+      const confidence = Number(analysis.setup.confidence) || 0;
+      if (confidence < 70) { scanned.push({ symbol, grade, confidence, skip: 'confidence below 70' }); continue; }
       if (analysis.setup.direction === 'NONE') { scanned.push({ symbol, grade, direction: 'NONE' }); continue; }
       if (String(analysis.setup.status || '').toUpperCase() === 'NO TRADE') { scanned.push({ symbol, grade, status: 'NO TRADE' }); continue; }
 
